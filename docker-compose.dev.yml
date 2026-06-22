@@ -1,0 +1,17 @@
+# ai-customer-analysis/docker-compose.dev.yml
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: customer_analysis
+      POSTGRES_PASSWORD: customer_analysis_dev
+      POSTGRES_DB: customer_analysis
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

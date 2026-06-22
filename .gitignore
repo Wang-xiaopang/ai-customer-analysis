@@ -1,0 +1,10 @@
+# ai-customer-analysis/.gitignore
+node_modules/
+.next/
+__pycache__/
+*.pyc
+.env
+.venv/
+*.egg-info/
+dist/
+.DS_Store
