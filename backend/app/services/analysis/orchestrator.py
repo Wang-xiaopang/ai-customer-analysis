@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from app.config import settings
-from app.main import async_session
+from app.database import async_session
 from app.models.analysis_task import AnalysisTask, UsageLog
 from app.services.analysis.search_service import SearchService
 from app.services.analysis.company_analyzer import CompanyAnalyzer

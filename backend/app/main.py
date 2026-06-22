@@ -3,12 +3,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
-
-engine = create_async_engine(settings.database_url, echo=False)
-async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+from app.database import engine, async_session
 
 
 @asynccontextmanager
@@ -30,6 +27,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+from app.routers import analysis, history, account
+
+app.include_router(analysis.router)
+app.include_router(history.router)
+app.include_router(account.router)
 
 
 @app.get("/api/health")
