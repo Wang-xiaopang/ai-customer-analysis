@@ -1,11 +1,12 @@
 # ai-customer-analysis/backend/app/main.py
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, async_session
+from app.middleware.rate_limit import check_rate_limit
 
 
 @asynccontextmanager
@@ -27,6 +28,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request: Request, call_next):
+    try:
+        await check_rate_limit(request)
+    except HTTPException as e:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+    response = await call_next(request)
+    return response
 
 
 from app.routers import analysis, history, account
