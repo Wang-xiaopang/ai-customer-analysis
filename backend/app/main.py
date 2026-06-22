@@ -13,14 +13,10 @@ async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Attempt to create database tables on startup.
-    # Models are not yet defined in Task 2, so this is a no-op until Task 3.
-    try:
-        from app.models import Base  # noqa: F811
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except (ImportError, Exception):
-        pass
+    from app.models import Base
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
     yield
     await engine.dispose()
 
