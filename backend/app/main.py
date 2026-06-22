@@ -12,9 +12,16 @@ from app.middleware.rate_limit import check_rate_limit
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from app.models import Base
+    import logging
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    logger = logging.getLogger("uvicorn")
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database tables created successfully")
+    except Exception as e:
+        logger.warning(f"Database connection failed (tables not created): {e}")
+        logger.warning("App will start without database — analysis will fail until DB is available")
     yield
     await engine.dispose()
 

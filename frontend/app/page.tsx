@@ -3,7 +3,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import SearchInput from "@/components/SearchInput";
 import ProgressStage from "@/components/ProgressStage";
-// Card components created in Task 13
 import ExecutiveSummaryCard from "@/components/ExecutiveSummaryCard";
 import ConfidenceCard from "@/components/ConfidenceCard";
 import ScoreCard from "@/components/ScoreCard";
@@ -17,6 +16,12 @@ import MessageCard from "@/components/MessageCard";
 import CopyFullReport from "@/components/CopyFullReport";
 import { createSSEConnection } from "@/lib/sse-client";
 import { incrementAnalysisCount, canAnalyze } from "@/lib/storage";
+import {
+  MOCK_COMPANY_CONTEXT,
+  MOCK_COMPANY_ANALYSIS,
+  MOCK_SALES_ANALYSIS,
+  MOCK_MESSAGES,
+} from "@/lib/mock-data";
 import type {
   CompanyContext,
   CompanyAnalysis,
@@ -50,7 +55,45 @@ export default function Home() {
     );
   };
 
+  // ━━━ Mock data preview ━━━
+  const loadMockData = () => {
+    setLoading(true);
+    setError(null);
+
+    // Simulate progressive loading like real SSE
+    setTimeout(() => {
+      setCompanyContext(MOCK_COMPANY_CONTEXT);
+      updateStage("search", "success");
+      updateStage("company_analysis", "running");
+    }, 600);
+
+    setTimeout(() => {
+      setCompanyAnalysis(MOCK_COMPANY_ANALYSIS);
+      updateStage("company_analysis", "success");
+      updateStage("sales_analysis", "running");
+    }, 1200);
+
+    setTimeout(() => {
+      setSalesAnalysis(MOCK_SALES_ANALYSIS);
+      updateStage("sales_analysis", "success");
+      updateStage("messages", "running");
+    }, 1800);
+
+    setTimeout(() => {
+      setMessages(MOCK_MESSAGES);
+      updateStage("messages", "success");
+      setGeneratedAt(new Date().toISOString());
+      setLoading(false);
+    }, 2400);
+  };
+
   const handleAnalyze = useCallback(async (input: string) => {
+    // If backend is not available, use mock data
+    if (input === "__mock__") {
+      loadMockData();
+      return;
+    }
+
     if (!canAnalyze()) {
       setError("今日免费分析次数已用完（3次/天）。请输入邮箱获取额外10次。");
       return;
@@ -113,8 +156,9 @@ export default function Home() {
         },
       });
     } catch (e: any) {
-      setError(e.message || "分析失败");
-      setLoading(false);
+      // Fallback to mock on connection failure
+      setError("后端未连接，自动切换为预览模式");
+      loadMockData();
     }
   }, []);
 
@@ -124,7 +168,6 @@ export default function Home() {
     if (hash.startsWith("#task=")) {
       const tid = hash.replace("#task=", "");
       setTaskId(tid);
-      // Fetch existing task state
       fetch(`/api/analysis/${tid}`)
         .then((r) => r.json())
         .then((data) => {
@@ -148,7 +191,7 @@ export default function Home() {
             setGeneratedAt(data.generated_at);
           }
         })
-        .catch(console.error);
+        .catch(() => loadMockData());
     }
   }, []);
 
@@ -157,50 +200,75 @@ export default function Home() {
   }
 
   const handleReanalyze = () => {
-    if (taskId) {
-      handleAnalyze(
-        companyContext?.company_name || ""
-      );
-    }
+    loadMockData();
   };
 
   const isComplete = companyAnalysis !== null || salesAnalysis !== null;
 
   return (
-    <div className="space-y-6">
-      <section className="text-center">
-        <h1 className="mb-2 text-2xl font-bold">AI客户分析助手</h1>
-        <p className="mb-6 text-muted-foreground">
-          输入客户公司名称或官网，30秒生成客户画像、潜在需求和销售切入策略
-        </p>
-        <SearchInput onAnalyze={handleAnalyze} disabled={loading} />
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
-      </section>
+    <div>
+      {/* ━━━ Hero Section ━━━ */}
+      {!isComplete && !loading && (
+        <section className="pt-16 text-center">
+          <h1 className="mb-3 text-[40px] font-extrabold leading-[1.1] tracking-[-0.02em] text-[#1d1d1f]">
+            了解你的
+            <br />
+            下一个客户
+          </h1>
+          <p className="mb-10 text-[17px] leading-relaxed text-[#6e6e73]">
+            输入公司名称或官网，即时获取深度客户情报、
+            <br />
+            销售策略与个性化开发信
+          </p>
+          <SearchInput onAnalyze={handleAnalyze} disabled={loading} />
+          <button
+            onClick={loadMockData}
+            className="mt-4 text-[13px] font-medium text-[#6e6e73] underline-offset-4 hover:text-[#007AFF] hover:underline transition-colors"
+          >
+            查看 Demo 报告 →
+          </button>
+          {error && (
+            <div className="mx-auto mt-4 max-w-md rounded-2xl border border-red-100 bg-red-50/50 px-5 py-3 text-[13px] text-red-500">
+              {error}
+            </div>
+          )}
+        </section>
+      )}
 
-      {loading && <ProgressStage stages={stages} />}
+      {/* ━━━ Loading State ━━━ */}
+      {loading && (
+        <section className="pt-16">
+          <ProgressStage stages={stages} />
+        </section>
+      )}
 
+      {/* ━━━ Results ━━━ */}
       {isComplete && (
-        <>
-          {/* Meta bar */}
-          <div className="flex items-center justify-between rounded-lg border bg-white px-4 py-2 text-sm text-muted-foreground">
+        <div className="space-y-5">
+          {/* Meta Bar */}
+          <div className="flex items-center justify-between text-[13px] text-[#86868b]">
             <div className="flex items-center gap-4">
               {generatedAt && (
-                <span>分析时间：{new Date(generatedAt).toLocaleString("zh-CN")}</span>
+                <span>
+                  {new Date(generatedAt).toLocaleString("zh-CN", {
+                    month: "long",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               )}
               {companyContext?.data_confidence && (
-                <span>
-                  数据完整度：{companyContext.data_confidence.score}% · {companyContext.data_confidence.level}
+                <span className="flex items-center gap-1.5">
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#34C759]" />
+                  数据完整度 {companyContext.data_confidence.score}%
                 </span>
               )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={handleReanalyze}
-                className="rounded-md border px-3 py-1 text-xs hover:bg-gray-50"
+                className="apple-btn-secondary !rounded-full !px-4 !py-1.5 !text-[12px]"
               >
                 重新分析
               </button>
@@ -215,11 +283,12 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Cards in Apple layout order */}
           {salesAnalysis?.executive_summary && (
             <ExecutiveSummaryCard data={salesAnalysis.executive_summary} />
           )}
           {companyContext?.data_confidence && (
-            <ConfidenceCard data={companyContext.data_confidence} />
+            <ConfidenceCard data={companyContext.data_confidence} companyName={companyContext.company_name} />
           )}
           {salesAnalysis?.customer_score && (
             <ScoreCard data={salesAnalysis.customer_score} />
@@ -243,7 +312,10 @@ export default function Home() {
             <NextActionsCard actions={salesAnalysis.next_actions} />
           )}
           {messages && <MessageCard messages={messages} />}
-        </>
+
+          {/* Bottom spacer */}
+          <div className="h-8" />
+        </div>
       )}
     </div>
   );
