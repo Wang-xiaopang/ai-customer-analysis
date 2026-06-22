@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import SearchInput from "@/components/SearchInput";
 import ProgressStage from "@/components/ProgressStage";
 // Card components created in Task 13
@@ -117,6 +117,44 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
+
+  // Restore task from URL hash on page refresh
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.startsWith("#task=")) {
+      const tid = hash.replace("#task=", "");
+      setTaskId(tid);
+      // Fetch existing task state
+      fetch(`/api/analysis/${tid}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.status === "success" || data.status === "partial_success") {
+            if (data.company_context) {
+              setCompanyContext(data.company_context);
+              updateStageFromData("search", "success");
+            }
+            if (data.company_analysis) {
+              setCompanyAnalysis(data.company_analysis);
+              updateStageFromData("company_analysis", "success");
+            }
+            if (data.sales_analysis) {
+              setSalesAnalysis(data.sales_analysis);
+              updateStageFromData("sales_analysis", "success");
+            }
+            if (data.messages) {
+              setMessages(data.messages);
+              updateStageFromData("messages", "success");
+            }
+            setGeneratedAt(data.generated_at);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
+  function updateStageFromData(stage: string, status: "success") {
+    setStages((prev) => prev.map((s) => (s.stage === stage ? { ...s, status } : s)));
+  }
 
   const handleReanalyze = () => {
     if (taskId) {
