@@ -39,6 +39,7 @@ class SearchService:
         all_news = []
         website_content = ""
         linkedin_found = False
+        has_jobs = False
 
         async with httpx.AsyncClient(timeout=15) as client:
             for query in queries[:2]:  # Limit to 2 searches to stay under 30s
@@ -72,40 +73,49 @@ class SearchService:
                                 linkedin_found = True
                                 break
 
+                    # Check for job-related content
+                    if not has_jobs:
+                        for r in data.get("organic_results", []):
+                            snippet = (r.get("title", "") + " " + r.get("snippet", "")).lower()
+                            if any(term in snippet for term in ["招聘", "career", "jobs", "加入我们"]):
+                                has_jobs = True
+                                break
+
                 except Exception:
                     continue  # Non-critical search failures are tolerated
 
-        # Detect website from results if not provided
-        if not website and all_news:
-            for news in all_news:
-                url = news.get("url", "")
-                if url and not any(
-                    d in url for d in ["linkedin.com", "facebook.com", "wikipedia.org", "zhihu.com", "weibo.com"]
-                ):
-                    # Extract domain as potential website
-                    match = re.match(r"https?://([^/]+)", url)
-                    if match:
-                        website = f"https://{match.group(1)}"
-                        break
+            # Detect website from results if not provided
+            if not website and all_news:
+                for news in all_news:
+                    url = news.get("url", "")
+                    if url and not any(
+                        d in url for d in ["linkedin.com", "facebook.com", "wikipedia.org", "zhihu.com", "weibo.com"]
+                    ):
+                        # Extract domain as potential website
+                        match = re.match(r"https?://([^/]+)", url)
+                        if match:
+                            website = f"https://{match.group(1)}"
+                            break
 
-        # Try to fetch website content
-        if website:
-            try:
-                resp = await client.get(website, timeout=10, follow_redirects=True)
-                # Simple text extraction from HTML
-                html = resp.text
-                # Strip HTML tags for basic content
-                clean = re.sub(r"<[^>]+>", " ", html)
-                clean = re.sub(r"\s+", " ", clean)
-                website_content = clean[:3000]  # First 3000 chars
-            except Exception:
-                website_content = ""
+            # Try to fetch website content
+            if website:
+                try:
+                    resp = await client.get(website, timeout=10, follow_redirects=True)
+                    # Simple text extraction from HTML
+                    html = resp.text
+                    # Strip HTML tags for basic content
+                    clean = re.sub(r"<[^>]+>", " ", html)
+                    clean = re.sub(r"\s+", " ", clean)
+                    website_content = clean[:3000]  # First 3000 chars
+                except Exception:
+                    website_content = ""
 
         # Calculate data confidence
         confidence = self._calculate_confidence(
             has_website=bool(website_content),
             news_count=len(all_news),
             has_linkedin=linkedin_found,
+            has_jobs=has_jobs,
         )
 
         return {
@@ -118,7 +128,7 @@ class SearchService:
         }
 
     def _calculate_confidence(
-        self, has_website: bool, news_count: int, has_linkedin: bool
+        self, has_website: bool, news_count: int, has_linkedin: bool, has_jobs: bool = False
     ) -> dict:
         score = 0
         detail_parts = []
@@ -135,6 +145,9 @@ class SearchService:
         if has_linkedin:
             score += 15
             detail_parts.append("获取到LinkedIn页面")
+        if has_jobs:
+            score += 20
+            detail_parts.append("检测到招聘信息")
 
         # Industry detection is done by LLM, so we give base points
         score += 10  # Base confidence
