@@ -27,6 +27,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     environment:
+      PYTHONUNBUFFERED: "1"
       DATABASE_URL: mysql+aiomysql://${DB_USER:-customer_analysis}:${DB_PASSWORD}@db:3306/${DB_NAME:-customer_analysis}
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
@@ -36,6 +37,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
 
   frontend:
