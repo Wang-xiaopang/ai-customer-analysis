@@ -10,11 +10,34 @@ interface Props {
 }
 
 const STAGE_CONFIG = {
-  search: { label: "搜索信息", icon: Search },
-  company_analysis: { label: "企业分析", icon: Building2 },
-  sales_analysis: { label: "销售策略", icon: Target },
-  messages: { label: "开发信", icon: MessageSquare },
+  search: {
+    label: "搜索信息",
+    icon: Search,
+    detail: (elapsed: number) =>
+      elapsed <= 8
+        ? "正在 Bing 搜索企业公开信息…"
+        : "搜索耗时较长，请耐心等待…",
+  },
+  company_analysis: {
+    label: "企业分析",
+    icon: Building2,
+    detail: () => "AI 正在分析企业画像与关键信号…",
+  },
+  sales_analysis: {
+    label: "销售策略",
+    icon: Target,
+    detail: () => "AI 正在生成销售策略与切入点…",
+  },
+  messages: {
+    label: "开发信",
+    icon: MessageSquare,
+    detail: () => "AI 正在撰写个性化开发信…",
+  },
 } as const;
+
+// 计时器驱动的阶段顺序
+const STAGE_ORDER = ["search", "company_analysis", "sales_analysis", "messages"] as const;
+const STAGE_TIMING = [0, 4, 12, 20]; // 每个阶段开始的秒数
 
 export default function ProgressStage({ stages, startTime }: Props) {
   const [elapsed, setElapsed] = useState(0);
@@ -42,28 +65,37 @@ export default function ProgressStage({ stages, startTime }: Props) {
         </div>
       </div>
 
-      {/* Status text */}
-      <p className="mb-2 text-[17px] font-semibold tracking-tight text-[#1d1d1f]">
-        {runningKey
-          ? STAGE_CONFIG[runningKey as keyof typeof STAGE_CONFIG]?.label
-          : failedKey
-          ? "分析中断"
-          : "正在分析…"}
-      </p>
-      <p className="mb-10 text-[13px] text-[#86868b]">
-        {runningKey === "search"
-          ? "AI 正在联网搜索企业信息"
-          : runningKey === "company_analysis"
-          ? "AI 正在分析企业画像与信号"
-          : runningKey === "sales_analysis"
-          ? "AI 正在生成销售策略与切入点"
-          : runningKey === "messages"
-          ? "AI 正在撰写个性化开发信"
-          : failedKey
-          ? "请稍后重试"
-          : "准备中…"}
-        <span className="ml-2 tabular-nums">{elapsed > 0 ? `${elapsed}s` : ""}</span>
-      </p>
+      {/* Status text — 基于计时器，不依赖 SSE */}
+      {(() => {
+        // 找当前应该运行的阶段（基于计时器）
+        let currentIdx = STAGE_ORDER.findLastIndex(
+          (_, i) => elapsed >= STAGE_TIMING[i]
+        );
+        if (currentIdx < 0) currentIdx = 0;
+
+        const done = stages.every((s) => s.status === "success");
+        const stageKey = done
+          ? STAGE_ORDER[3]
+          : (stages.find((s) => s.status === "running")?.stage as keyof typeof STAGE_CONFIG) ||
+            STAGE_ORDER[currentIdx];
+        const cfg = STAGE_CONFIG[stageKey];
+
+        return (
+          <>
+            <p className="mb-2 text-[17px] font-semibold tracking-tight text-[#1d1d1f]">
+              {done ? "分析完成" : cfg?.label || "正在分析…"}
+            </p>
+            <p className="mb-10 text-[13px] text-[#86868b]">
+              {done
+                ? "正在整理报告…"
+                : cfg?.detail
+                ? cfg.detail(elapsed)
+                : "准备中…"}
+              <span className="ml-2 tabular-nums">{elapsed > 0 ? `${elapsed}s` : ""}</span>
+            </p>
+          </>
+        );
+      })()}
 
       {/* Horizontal progress bar with 4 nodes */}
       <div className="relative flex items-center justify-between px-4">
@@ -131,11 +163,9 @@ export default function ProgressStage({ stages, startTime }: Props) {
 
       {/* Footer */}
       <p className="mt-8 text-[12px] text-[#86868b]">
-        {failedKey
-          ? "部分阶段失败，分析结果可能不完整"
-          : stages.filter((s) => s.status === "success").length === 4
+        {stages.every((s) => s.status === "success")
           ? "分析完成，正在整理报告…"
-          : `预计还需 ${Math.max(5, (4 - stages.filter(s => s.status === "success").length) * 10)}–${Math.max(8, (4 - stages.filter(s => s.status === "success").length) * 15)} 秒`}
+          : `预计还需 ${Math.max(3, 30 - elapsed)} 秒`}
       </p>
     </div>
   );
