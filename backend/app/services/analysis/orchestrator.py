@@ -76,7 +76,7 @@ class Orchestrator:
         logger.info("阶段1: 开始搜索...")
         try:
             company_context = await asyncio.wait_for(
-                self.search.search(input_text), timeout=18
+                self.search.search(input_text), timeout=10
             )
             await save_stage_result("company_context", company_context)
             logger.info(f"阶段1完成: 搜索到 {len(company_context.get('news', []))} 条结果, 置信度 {company_context.get('data_confidence', {}).get('score', '?')}%")
