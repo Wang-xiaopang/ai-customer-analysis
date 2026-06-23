@@ -1,5 +1,4 @@
 # ai-customer-analysis/backend/app/routers/history.py
-import uuid
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select, desc
 from app.database import async_session
@@ -34,10 +33,8 @@ async def list_history(limit: int = 20, offset: int = 0):
 
 @router.get("/{task_id}")
 async def get_history_report(task_id: str):
-    try:
-        tid = uuid.UUID(task_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="无效的任务ID")
+    # MySQL VARCHAR(36)，直接用字符串，不用 uuid.UUID 转换
+    tid = task_id
 
     async with async_session() as db:
         result = await db.execute(select(AnalysisTask).where(AnalysisTask.id == tid))

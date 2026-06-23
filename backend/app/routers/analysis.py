@@ -43,7 +43,7 @@ async def create_analysis(req: AnalysisRequest):
 @router.get("/{task_id}")
 async def get_task(task_id: str):
     try:
-        tid = uuid.UUID(task_id)
+        tid = task_id  # MySQL VARCHAR(36)，直接用字符串
     except ValueError:
         raise HTTPException(status_code=400, detail="无效的任务ID")
 
@@ -73,7 +73,7 @@ async def get_task(task_id: str):
 @router.get("/{task_id}/stream")
 async def stream_analysis(task_id: str, request: Request):
     try:
-        tid = uuid.UUID(task_id)
+        tid = task_id  # MySQL VARCHAR(36)，直接用字符串
     except ValueError:
         raise HTTPException(status_code=400, detail="无效的任务ID")
 
