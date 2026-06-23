@@ -42,6 +42,7 @@ export default function Home() {
   const [taskId, setTaskId] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<string>("");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  const [startTime, setStartTime] = useState<number>(0);
   const closeRef = useRef<(() => void) | null>(null);
 
   const updateStage = (stage: string, status: "running" | "success" | "failed") => {
@@ -64,6 +65,7 @@ export default function Home() {
     setMessages(null);
     setGeneratedAt(null);
     setLastInput(input);
+    setStartTime(Date.now());
     setStages(INITIAL_STAGES.map((s) => ({ ...s })));
 
     try {
@@ -171,7 +173,7 @@ export default function Home() {
 
       {loading && (
         <section className="pt-16">
-          <ProgressStage stages={stages} />
+          <ProgressStage stages={stages} startTime={startTime} />
         </section>
       )}
 

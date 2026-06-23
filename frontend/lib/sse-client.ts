@@ -14,7 +14,25 @@ export function createSSEConnection(taskId: string, callbacks: SSECallback): () 
   const url = `/api/analysis/${taskId}/stream`;
   const eventSource = new EventSource(url);
 
+  let received = false;
+
+  // Connection timeout — if no event in 15s, something is wrong
+  const timeoutId = setTimeout(() => {
+    if (!received) {
+      callbacks.onError?.("connection", "分析服务响应超时，请稍后重试");
+      eventSource.close();
+    }
+  }, 15000);
+
+  const markReceived = () => {
+    if (!received) {
+      received = true;
+      clearTimeout(timeoutId);
+    }
+  };
+
   eventSource.addEventListener("search_complete", (e) => {
+    markReceived();
     callbacks.onSearchComplete?.(JSON.parse(e.data));
   });
 
@@ -31,11 +49,12 @@ export function createSSEConnection(taskId: string, callbacks: SSECallback): () 
   });
 
   eventSource.addEventListener("error", (e: MessageEvent) => {
+    markReceived();
     try {
       const data = JSON.parse(e.data);
       callbacks.onError?.(data.stage, data.message);
     } catch {
-      callbacks.onError?.("connection", "SSE连接错误");
+      callbacks.onError?.("connection", "分析服务异常");
     }
   });
 
@@ -45,15 +64,19 @@ export function createSSEConnection(taskId: string, callbacks: SSECallback): () 
   });
 
   eventSource.addEventListener("done", () => {
+    clearTimeout(timeoutId);
     callbacks.onDone?.();
     eventSource.close();
   });
 
-  // Generic error handler
   eventSource.onerror = () => {
-    callbacks.onError?.("connection", "SSE连接中断");
+    clearTimeout(timeoutId);
+    callbacks.onError?.("connection", "连接中断，请检查服务器状态");
     eventSource.close();
   };
 
-  return () => eventSource.close();
+  return () => {
+    clearTimeout(timeoutId);
+    eventSource.close();
+  };
 }
