@@ -1,6 +1,5 @@
 # ai-customer-analysis/backend/Dockerfile
-# 使用阿里云镜像，国内拉取快
-FROM registry.cn-hangzhou.aliyuncs.com/library/python:3.12-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 

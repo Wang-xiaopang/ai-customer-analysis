@@ -1,6 +1,5 @@
 # Stage 1: Build
-# 使用阿里云镜像，国内拉取快
-FROM registry.cn-hangzhou.aliyuncs.com/library/node:24-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /app
 
