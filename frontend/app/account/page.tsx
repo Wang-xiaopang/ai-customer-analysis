@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getTodayAnalysisCount, getBonusRemaining, getStoredEmail, setStoredEmail } from "@/lib/storage";
+import { getTodayAnalysisCount, getBonusRemaining, getStoredEmail, setStoredEmail, isValidEmail } from "@/lib/storage";
 import { Mail, Zap, Crown, MessageCircle } from "lucide-react";
 
 export default function AccountPage() {
@@ -20,7 +20,7 @@ export default function AccountPage() {
   useEffect(refresh, []);
 
   const handleSaveEmail = () => {
-    if (inputEmail.trim() && inputEmail.includes("@")) {
+    if (isValidEmail(inputEmail.trim())) {
       setStoredEmail(inputEmail.trim());
       setEmail(inputEmail.trim());
       setInputEmail("");

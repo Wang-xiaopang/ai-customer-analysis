@@ -1,3 +1,8 @@
+// 正确的邮箱格式验证
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 const STORAGE_KEYS = {
   analysisCount: "analysis_count",
   analysisDate: "analysis_date",

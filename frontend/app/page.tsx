@@ -15,7 +15,7 @@ import NextActionsCard from "@/components/NextActionsCard";
 import MessageCard from "@/components/MessageCard";
 import CopyFullReport from "@/components/CopyFullReport";
 import { createSSEConnection } from "@/lib/sse-client";
-import { incrementAnalysisCount, canAnalyze, setStoredEmail } from "@/lib/storage";
+import { incrementAnalysisCount, canAnalyze, setStoredEmail, isValidEmail } from "@/lib/storage";
 import type {
   CompanyContext,
   CompanyAnalysis,
@@ -23,6 +23,18 @@ import type {
   Messages,
   StageStatus,
 } from "@/lib/types";
+
+// 卡片逐个出现的延迟动画
+function RevealCard({ index, children }: { index: number; children: React.ReactNode }) {
+  return (
+    <div
+      className="animate-[fadeIn_0.5s_ease-out_both]"
+      style={{ animationDelay: `${index * 0.15}s` }}
+    >
+      {children}
+    </div>
+  );
+}
 
 const INITIAL_STAGES: StageStatus[] = [
   { stage: "search", label: "搜索企业信息", status: "pending" },
@@ -168,7 +180,7 @@ export default function Home() {
   };
 
   const handleEmailSubmit = () => {
-    if (email.trim() && email.includes("@")) {
+    if (isValidEmail(email.trim())) {
       setStoredEmail(email.trim());
       setShowEmailModal(false);
       setError(null);
@@ -250,34 +262,42 @@ export default function Home() {
             </div>
           </div>
 
-          {salesAnalysis?.executive_summary && (
-            <ExecutiveSummaryCard data={salesAnalysis.executive_summary} />
-          )}
-          {companyContext?.data_confidence && (
-            <ConfidenceCard data={companyContext.data_confidence} companyName={companyContext.company_name} />
-          )}
-          {salesAnalysis?.customer_score && (
-            <ScoreCard data={salesAnalysis.customer_score} />
-          )}
-          {companyAnalysis?.company_profile && (
-            <CompanyProfileCard data={companyAnalysis.company_profile} />
-          )}
-          {companyAnalysis?.signals && companyAnalysis.signals.length > 0 && (
-            <SignalCard signals={companyAnalysis.signals} />
-          )}
-          {salesAnalysis?.potential_needs && salesAnalysis.potential_needs.length > 0 && (
-            <NeedsCard needs={salesAnalysis.potential_needs} />
-          )}
-          {salesAnalysis?.sales_entry_points && salesAnalysis.sales_entry_points.length > 0 && (
-            <EntryPointsCard entryPoints={salesAnalysis.sales_entry_points} />
-          )}
-          {salesAnalysis?.contact_strategy && (
-            <ContactStrategyCard data={salesAnalysis.contact_strategy} />
-          )}
-          {salesAnalysis?.next_actions && salesAnalysis.next_actions.length > 0 && (
-            <NextActionsCard actions={salesAnalysis.next_actions} />
-          )}
-          {messages && <MessageCard messages={messages} />}
+          {[
+            salesAnalysis?.executive_summary && (
+              <ExecutiveSummaryCard key="s" data={salesAnalysis.executive_summary} />
+            ),
+            companyContext?.data_confidence && (
+              <ConfidenceCard key="c" data={companyContext.data_confidence} companyName={companyContext.company_name} />
+            ),
+            salesAnalysis?.customer_score && (
+              <ScoreCard key="sc" data={salesAnalysis.customer_score} />
+            ),
+            companyAnalysis?.company_profile && (
+              <CompanyProfileCard key="cp" data={companyAnalysis.company_profile} />
+            ),
+            companyAnalysis?.signals && companyAnalysis.signals.length > 0 && (
+              <SignalCard key="sig" signals={companyAnalysis.signals} />
+            ),
+            salesAnalysis?.potential_needs && salesAnalysis.potential_needs.length > 0 && (
+              <NeedsCard key="pn" needs={salesAnalysis.potential_needs} />
+            ),
+            salesAnalysis?.sales_entry_points && salesAnalysis.sales_entry_points.filter(ep => ep.direction && ep.suggested_talk).length > 0 && (
+              <EntryPointsCard key="ep" entryPoints={salesAnalysis.sales_entry_points.filter(ep => ep.direction && ep.suggested_talk)} />
+            ),
+            salesAnalysis?.contact_strategy && (
+              <ContactStrategyCard key="cs" data={salesAnalysis.contact_strategy} />
+            ),
+            salesAnalysis?.next_actions && salesAnalysis.next_actions.length > 0 && (
+              <NextActionsCard key="na" actions={salesAnalysis.next_actions} />
+            ),
+            messages && (
+              <MessageCard key="msg" messages={messages} />
+            ),
+          ]
+            .filter(Boolean)
+            .map((card, i) => (
+              <RevealCard key={i} index={i}>{card}</RevealCard>
+            ))}
 
           <div className="h-8" />
         </div>
