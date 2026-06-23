@@ -73,28 +73,30 @@ class Orchestrator:
         await update_db_status("running")
 
         # --- Stage 1: Search ---
+        logger.info("阶段1: 开始搜索...")
         try:
             company_context = await asyncio.wait_for(
-                self.search.search(input_text), timeout=15
+                self.search.search(input_text), timeout=18
             )
             await save_stage_result("company_context", company_context)
+            logger.info(f"阶段1完成: 搜索到 {len(company_context.get('news', []))} 条结果, 置信度 {company_context.get('data_confidence', {}).get('score', '?')}%")
             yield self._sse_event("search_complete", company_context)
         except asyncio.TimeoutError:
+            logger.error("阶段1超时: 搜索超过18秒")
             failed_stages.append("search")
-            yield self._sse_event(
-                "error", {"stage": "search", "message": "搜索超时"}
-            )
+            yield self._sse_event("error", {"stage": "search", "message": "搜索超时，请稍后重试"})
             await update_db_status("failed")
             return
         except Exception as e:
+            logger.error(f"阶段1失败: {e}")
             failed_stages.append("search")
-            yield self._sse_event(
-                "error", {"stage": "search", "message": str(e)}
+            yield self._sse_event("error", {"stage": "search", "message": str(e)}
             )
             await update_db_status("failed")
             return
 
         # --- Stage 2: Company Analysis ---
+        logger.info("阶段2: 开始企业分析...")
         try:
             remaining = self.timeout - (time.time() - start_time)
             if remaining <= 0:
@@ -103,45 +105,43 @@ class Orchestrator:
                 self.company_analyzer.analyze(company_context), timeout=remaining
             )
             await save_stage_result("company_analysis", company_analysis)
+            logger.info("阶段2完成: 企业分析")
             yield self._sse_event("company_analysis", company_analysis)
         except asyncio.TimeoutError:
+            logger.error("阶段2超时")
             failed_stages.append("company_analysis")
-            yield self._sse_event(
-                "stage_failed", {"stage": "company_analysis", "retry": True}
-            )
+            yield self._sse_event("stage_failed", {"stage": "company_analysis", "retry": True})
         except Exception as e:
+            logger.error(f"阶段2失败: {e}")
             failed_stages.append("company_analysis")
-            yield self._sse_event(
-                "error", {"stage": "company_analysis", "message": str(e)}
-            )
+            yield self._sse_event("error", {"stage": "company_analysis", "message": str(e)})
 
         # --- Stage 3: Sales Analysis ---
         if company_analysis:
+            logger.info("阶段3: 开始销售分析...")
             try:
                 remaining = self.timeout - (time.time() - start_time)
                 if remaining <= 0:
                     raise asyncio.TimeoutError("总超时")
                 sales_analysis = await asyncio.wait_for(
-                    self.sales_analyzer.analyze(
-                        company_context, company_analysis
-                    ),
+                    self.sales_analyzer.analyze(company_context, company_analysis),
                     timeout=remaining,
                 )
                 await save_stage_result("sales_analysis", sales_analysis)
+                logger.info("阶段3完成: 销售分析")
                 yield self._sse_event("sales_analysis", sales_analysis)
             except asyncio.TimeoutError:
+                logger.error("阶段3超时")
                 failed_stages.append("sales_analysis")
-                yield self._sse_event(
-                    "stage_failed", {"stage": "sales_analysis", "retry": True}
-                )
+                yield self._sse_event("stage_failed", {"stage": "sales_analysis", "retry": True})
             except Exception as e:
+                logger.error(f"阶段3失败: {e}")
                 failed_stages.append("sales_analysis")
-                yield self._sse_event(
-                    "error", {"stage": "sales_analysis", "message": str(e)}
-                )
+                yield self._sse_event("error", {"stage": "sales_analysis", "message": str(e)})
 
         # --- Stage 4: Message Generation ---
         if company_analysis and sales_analysis:
+            logger.info("阶段4: 开始生成开发信...")
             try:
                 remaining = self.timeout - (time.time() - start_time)
                 if remaining <= 0:
@@ -153,17 +153,16 @@ class Orchestrator:
                     timeout=remaining,
                 )
                 await save_stage_result("messages", messages)
+                logger.info("阶段4完成: 开发信生成")
                 yield self._sse_event("messages", messages)
             except asyncio.TimeoutError:
+                logger.error("阶段4超时")
                 failed_stages.append("messages")
-                yield self._sse_event(
-                    "stage_failed", {"stage": "messages", "retry": True}
-                )
+                yield self._sse_event("stage_failed", {"stage": "messages", "retry": True})
             except Exception as e:
+                logger.error(f"阶段4失败: {e}")
                 failed_stages.append("messages")
-                yield self._sse_event(
-                    "error", {"stage": "messages", "message": str(e)}
-                )
+                yield self._sse_event("error", {"stage": "messages", "message": str(e)})
 
         # --- Determine final status ---
         completed_stages = 4 - len(failed_stages)

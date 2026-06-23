@@ -1,18 +1,24 @@
 # ai-customer-analysis/backend/app/services/analysis/search_service.py
-import re
 import asyncio
+import logging
+import re
 import httpx
+from concurrent.futures import ThreadPoolExecutor
 from ddgs import DDGS
+
+logger = logging.getLogger("uvicorn")
 
 
 class SearchService:
     """Company search using DuckDuckGo (free, no API key required)."""
 
+    # 专用线程池，避免阻塞默认线程池
+    _executor = ThreadPoolExecutor(max_workers=2)
+
     def __init__(self):
-        pass  # No API key needed
+        pass
 
     def _detect_input_type(self, text: str) -> str:
-        """Detect if input is URL, company name, or description."""
         text = text.strip()
         if re.match(r"^https?://", text):
             return "url"
@@ -20,15 +26,10 @@ class SearchService:
             return "description"
         return "company_name"
 
-    def _extract_domain(self, url: str) -> str | None:
-        match = re.match(r"https?://([^/]+)", url)
-        return match.group(1) if match else None
-
     def _is_social_media(self, url: str) -> bool:
         social_domains = [
             "linkedin.com", "facebook.com", "wikipedia.org",
             "zhihu.com", "weibo.com", "twitter.com", "instagram.com",
-            "youtube.com", "tiktok.com", "xiaohongshu.com",
         ]
         return any(d in url.lower() for d in social_domains)
 
@@ -36,7 +37,31 @@ class SearchService:
         text = (title + " " + body).lower()
         return any(term in text for term in ["招聘", "career", "jobs", "加入我们", "校招", "社招"])
 
-    async def search(self, company_input: str) -> dict:
+    def _blocking_search(self, query: str, max_results: int = 5) -> list:
+        """同步搜索，在线程中运行，单个查询限时 8 秒"""
+        results = []
+        try:
+            with DDGS() as ddgs:
+                for r in ddgs.text(query, region="wt-wt", max_results=max_results):
+                    results.append(r)
+        except Exception:
+            pass
+        return results
+
+    async def _timed_search(self, query: str, max_results: int = 5, timeout: int = 8) -> list:
+        """带超时的异步搜索包装"""
+        loop = asyncio.get_running_loop()
+        try:
+            return await asyncio.wait_for(
+                loop.run_in_executor(self._executor, self._blocking_search, query, max_results),
+                timeout=timeout,
+            )
+        except asyncio.TimeoutError:
+            logger.warning(f"搜索超时 ({timeout}s): {query}")
+            return []
+        except Exception as e:
+            logger.warning(f"搜索失败: {query} — {e}")
+            return []
         input_type = self._detect_input_type(company_input)
 
         if input_type == "url":
@@ -46,44 +71,21 @@ class SearchService:
             website = None
             company_name = company_input.strip()
 
+        logger.info(f"开始搜索: {company_name}")
         all_news = []
         website_content = ""
         linkedin_found = False
         has_jobs = False
 
-        # Run DuckDuckGo searches in thread pool (DDGS is sync, we run async)
-        loop = asyncio.get_running_loop()
+        # 并行搜索，每个查询限时 8 秒
+        web_query = f"{company_name}" if not website else company_name
+        web_task = self._timed_search(web_query, max_results=5, timeout=8)
+        jobs_task = self._timed_search(f"{company_name} 招聘", max_results=5, timeout=8)
 
-        def _search_web(query: str, max_results: int = 8):
-            results = []
-            try:
-                with DDGS() as ddgs:
-                    for r in ddgs.text(query, region="wt-wt", max_results=max_results):
-                        results.append(r)
-            except Exception:
-                pass
-            return results
-
-        def _search_news(query: str, max_results: int = 5):
-            results = []
-            try:
-                with DDGS() as ddgs:
-                    for r in ddgs.news(query, region="wt-wt", max_results=max_results):
-                        results.append(r)
-            except Exception:
-                pass
-            return results
-
-        # Search web + news in parallel
-        web_query = f"{company_name} 公司 官网" if not website else company_name
-        web_results_future = loop.run_in_executor(None, _search_web, web_query, 8)
-        news_future = loop.run_in_executor(None, _search_news, f"{company_name}", 5)
-
-        web_results, news_results = await asyncio.gather(web_results_future, news_future)
-
-        # Also search for jobs
-        jobs_future = loop.run_in_executor(None, _search_web, f"{company_name} 招聘 2025", 5)
-        jobs_results = await jobs_future
+        results = await asyncio.gather(web_task, jobs_task)
+        web_results = results[0]
+        jobs_results = results[1]
+        logger.info(f"搜索完成: 普通结果 {len(web_results)} 条, 招聘结果 {len(jobs_results)} 条")
 
         # Process web results
         for r in web_results:
