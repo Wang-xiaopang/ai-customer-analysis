@@ -24,9 +24,10 @@ async def create_analysis(req: AnalysisRequest):
         raise HTTPException(status_code=400, detail="请输入公司名称或网址")
 
     task_id = str(uuid.uuid4())
-    task = AnalysisTask(id=task_id, input_text=req.input.strip(), status="pending")
     async with async_session() as db:
+        task = AnalysisTask(id=task_id, input_text=req.input.strip(), status="pending")
         db.add(task)
+        await db.flush()  # 确保写入 MySQL
         await db.commit()
     logger.info(f"创建分析任务: {task_id}")
 
