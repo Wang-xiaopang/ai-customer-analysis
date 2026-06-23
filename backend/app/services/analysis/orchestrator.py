@@ -1,13 +1,17 @@
 # ai-customer-analysis/backend/app/services/analysis/orchestrator.py
 import asyncio
 import json
+import logging
 import time
+import traceback
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 
 from sqlalchemy import select
 
 from app.config import settings
+
+logger = logging.getLogger("uvicorn")
 from app.database import async_session
 from app.models.analysis_task import AnalysisTask, UsageLog
 from app.services.analysis.search_service import SearchService
