@@ -106,6 +106,9 @@ export default function Home() {
       window.location.hash = `task=${task_id}`;
 
       closeRef.current = createSSEConnection(task_id, {
+        onOpen: () => {
+          updateStage("search", "running");
+        },
         onSearchComplete: (data) => {
           setCompanyContext(data);
           updateStage("search", "success");

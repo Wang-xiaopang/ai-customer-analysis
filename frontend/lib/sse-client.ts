@@ -1,6 +1,7 @@
 import type { CompanyContext, CompanyAnalysis, SalesAnalysis, Messages } from "./types";
 
 type SSECallback = {
+  onOpen?: () => void;
   onSearchComplete?: (data: CompanyContext) => void;
   onCompanyAnalysis?: (data: CompanyAnalysis) => void;
   onSalesAnalysis?: (data: SalesAnalysis) => void;
@@ -13,6 +14,11 @@ type SSECallback = {
 export function createSSEConnection(taskId: string, callbacks: SSECallback): () => void {
   const url = `/api/analysis/${taskId}/stream`;
   const eventSource = new EventSource(url);
+
+  // 连接建立即触发：标记阶段1运行中
+  eventSource.onopen = () => {
+    callbacks.onOpen?.();
+  };
 
   let received = false;
 
