@@ -1,14 +1,15 @@
 # ai-customer-analysis/backend/app/services/analysis/search_service.py
 import re
+import asyncio
 import httpx
-from app.config import settings
+from ddgs import DDGS
 
 
 class SearchService:
-    BASE_URL = "https://serpapi.com/search"
+    """Company search using DuckDuckGo (free, no API key required)."""
 
     def __init__(self):
-        self.api_key = settings.serpapi_api_key
+        pass  # No API key needed
 
     def _detect_input_type(self, text: str) -> str:
         """Detect if input is URL, company name, or description."""
@@ -19,96 +20,133 @@ class SearchService:
             return "description"
         return "company_name"
 
+    def _extract_domain(self, url: str) -> str | None:
+        match = re.match(r"https?://([^/]+)", url)
+        return match.group(1) if match else None
+
+    def _is_social_media(self, url: str) -> bool:
+        social_domains = [
+            "linkedin.com", "facebook.com", "wikipedia.org",
+            "zhihu.com", "weibo.com", "twitter.com", "instagram.com",
+            "youtube.com", "tiktok.com", "xiaohongshu.com",
+        ]
+        return any(d in url.lower() for d in social_domains)
+
+    def _is_jobs_related(self, title: str, body: str) -> bool:
+        text = (title + " " + body).lower()
+        return any(term in text for term in ["招聘", "career", "jobs", "加入我们", "校招", "社招"])
+
     async def search(self, company_input: str) -> dict:
         input_type = self._detect_input_type(company_input)
 
         if input_type == "url":
             website = company_input.strip()
-            company_name = website  # Will be refined after scraping
+            company_name = website
         else:
             website = None
             company_name = company_input.strip()
-
-        # Search for company info
-        queries = [
-            f"{company_name} 公司",
-            f"{company_name} 招聘 2025",
-            f"{company_name} 最新动态",
-        ]
 
         all_news = []
         website_content = ""
         linkedin_found = False
         has_jobs = False
 
-        async with httpx.AsyncClient(timeout=15) as client:
-            for query in queries[:2]:  # Limit to 2 searches to stay under 30s
-                try:
-                    resp = await client.get(
-                        self.BASE_URL,
-                        params={
-                            "api_key": self.api_key,
-                            "q": query,
-                            "engine": "google",
-                            "num": 5,
-                            "gl": "cn",
-                            "hl": "zh-cn",
-                        },
-                    )
-                    data = resp.json()
+        # Run DuckDuckGo searches in thread pool (DDGS is sync, we run async)
+        loop = asyncio.get_running_loop()
 
-                    # Extract organic results
-                    for result in data.get("organic_results", []):
-                        all_news.append({
-                            "title": result.get("title", ""),
-                            "url": result.get("link", ""),
-                            "snippet": result.get("snippet", ""),
-                            "date": result.get("date", ""),
-                        })
+        def _search_web(query: str, max_results: int = 8):
+            results = []
+            try:
+                with DDGS() as ddgs:
+                    for r in ddgs.text(query, region="wt-wt", max_results=max_results):
+                        results.append(r)
+            except Exception:
+                pass
+            return results
 
-                    # Check for LinkedIn
-                    if not linkedin_found:
-                        for r in data.get("organic_results", []):
-                            if "linkedin.com/company" in r.get("link", "").lower():
-                                linkedin_found = True
-                                break
+        def _search_news(query: str, max_results: int = 5):
+            results = []
+            try:
+                with DDGS() as ddgs:
+                    for r in ddgs.news(query, region="wt-wt", max_results=max_results):
+                        results.append(r)
+            except Exception:
+                pass
+            return results
 
-                    # Check for job-related content
-                    if not has_jobs:
-                        for r in data.get("organic_results", []):
-                            snippet = (r.get("title", "") + " " + r.get("snippet", "")).lower()
-                            if any(term in snippet for term in ["招聘", "career", "jobs", "加入我们"]):
-                                has_jobs = True
-                                break
+        # Search web + news in parallel
+        web_query = f"{company_name} 公司 官网" if not website else company_name
+        web_results_future = loop.run_in_executor(None, _search_web, web_query, 8)
+        news_future = loop.run_in_executor(None, _search_news, f"{company_name}", 5)
 
-                except Exception:
-                    continue  # Non-critical search failures are tolerated
+        web_results, news_results = await asyncio.gather(web_results_future, news_future)
 
-            # Detect website from results if not provided
-            if not website and all_news:
-                for news in all_news:
-                    url = news.get("url", "")
-                    if url and not any(
-                        d in url for d in ["linkedin.com", "facebook.com", "wikipedia.org", "zhihu.com", "weibo.com"]
-                    ):
-                        # Extract domain as potential website
-                        match = re.match(r"https?://([^/]+)", url)
-                        if match:
-                            website = f"https://{match.group(1)}"
-                            break
+        # Also search for jobs
+        jobs_future = loop.run_in_executor(None, _search_web, f"{company_name} 招聘 2025", 5)
+        jobs_results = await jobs_future
 
-            # Try to fetch website content
-            if website:
-                try:
-                    resp = await client.get(website, timeout=10, follow_redirects=True)
-                    # Simple text extraction from HTML
+        # Process web results
+        for r in web_results:
+            url = r.get("href", "")
+            all_news.append({
+                "title": r.get("title", ""),
+                "url": url,
+                "snippet": r.get("body", ""),
+                "date": "",
+            })
+
+            # Detect LinkedIn
+            if not linkedin_found and "linkedin.com/company" in url.lower():
+                linkedin_found = True
+
+            # Detect website from results
+            if not website and url and not self._is_social_media(url):
+                domain = self._extract_domain(url)
+                if domain:
+                    website = f"https://{domain}"
+
+            # Check for jobs
+            if not has_jobs and self._is_jobs_related(r.get("title", ""), r.get("body", "")):
+                has_jobs = True
+
+        # Process news results
+        for r in news_results:
+            all_news.append({
+                "title": r.get("title", ""),
+                "url": r.get("url", ""),
+                "snippet": r.get("body", ""),
+                "date": r.get("date", ""),
+            })
+
+            if not linkedin_found and "linkedin.com/company" in r.get("url", "").lower():
+                linkedin_found = True
+
+            if not has_jobs and self._is_jobs_related(r.get("title", ""), r.get("body", "")):
+                has_jobs = True
+
+        # Process jobs results
+        for r in jobs_results:
+            if self._is_jobs_related(r.get("title", ""), r.get("body", "")):
+                has_jobs = True
+                # Add jobs-related results to news
+                all_news.append({
+                    "title": r.get("title", ""),
+                    "url": r.get("href", ""),
+                    "snippet": r.get("body", ""),
+                    "date": "",
+                })
+
+        # Fetch website content
+        if website:
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(website, follow_redirects=True)
                     html = resp.text
-                    # Strip HTML tags for basic content
                     clean = re.sub(r"<[^>]+>", " ", html)
                     clean = re.sub(r"\s+", " ", clean)
-                    website_content = clean[:3000]  # First 3000 chars
-                except Exception:
-                    website_content = ""
+                    website_content = clean[:3000]
+            except Exception:
+                website_content = ""
 
         # Calculate data confidence
         confidence = self._calculate_confidence(
@@ -123,7 +161,7 @@ class SearchService:
             "website": website or "",
             "industry": "",
             "website_content": website_content,
-            "news": all_news[:10],
+            "news": all_news[:15],
             "data_confidence": confidence,
         }
 
@@ -136,12 +174,15 @@ class SearchService:
         if has_website:
             score += 30
             detail_parts.append("获取到官网内容")
-        if news_count >= 3:
-            score += 25
-            detail_parts.append(f"获取到{news_count}条新闻")
+        if news_count >= 5:
+            score += 30
+            detail_parts.append(f"获取到{news_count}条搜索结果")
+        elif news_count >= 3:
+            score += 20
+            detail_parts.append(f"获取到{news_count}条搜索结果")
         elif news_count > 0:
             score += 10
-            detail_parts.append(f"获取到{news_count}条新闻")
+            detail_parts.append(f"获取到{news_count}条搜索结果")
         if has_linkedin:
             score += 15
             detail_parts.append("获取到LinkedIn页面")
@@ -149,7 +190,6 @@ class SearchService:
             score += 20
             detail_parts.append("检测到招聘信息")
 
-        # Industry detection is done by LLM, so we give base points
         score += 10  # Base confidence
 
         if score >= 80:
@@ -163,7 +203,7 @@ class SearchService:
         if not has_website:
             missing.append("官网内容")
         if news_count < 3:
-            missing.append("新闻信息")
+            missing.append("搜索信息不足")
         if not has_linkedin:
             missing.append("LinkedIn页面")
 

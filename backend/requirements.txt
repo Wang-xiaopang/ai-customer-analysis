@@ -9,3 +9,4 @@ httpx==0.28.1
 openai==2.43.0
 python-dotenv==1.2.2
 alembic==1.18.4
+ddgs>=9.0.0

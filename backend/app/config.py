@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     deepseek_base_url: str = "https://api.deepseek.com/v1"
     deepseek_model: str = "deepseek-chat"
     openai_api_key: str = ""
-    serpapi_api_key: str = ""
+    serpapi_api_key: str = ""  # 使用 DuckDuckGo 免费搜索时可留空
     cors_origin: str = "http://localhost:3000"
     analysis_timeout_seconds: int = 30
 
