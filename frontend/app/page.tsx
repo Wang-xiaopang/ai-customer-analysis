@@ -147,7 +147,7 @@ export default function Home() {
     }
   }, []);
 
-  // Restore task from URL hash (history "查看" / page refresh)
+  // Restore task from URL hash (history "查看" / reanalyze / page refresh)
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith("#task=")) {
@@ -157,31 +157,31 @@ export default function Home() {
         .then((r) => r.json())
         .then((data) => {
           if (data.status === "success" || data.status === "partial_success") {
+            // 已完成：直接展示
             if (data.company_context) setCompanyContext(data.company_context);
             if (data.company_analysis) setCompanyAnalysis(data.company_analysis);
             if (data.sales_analysis) setSalesAnalysis(data.sales_analysis);
             if (data.messages) setMessages(data.messages);
             if (data.input_text) setLastInput(data.input_text);
             if (data.generated_at) setGeneratedAt(data.generated_at);
+          } else if (data.status === "pending" || data.status === "running") {
+            // 新任务：启动 SSE 流
+            if (data.input_text) setLastInput(data.input_text);
+            setLoading(true);
+            setStages(INITIAL_STAGES.map((s) => ({ ...s })));
+            closeRef.current = createSSEConnection(tid, {
+              onOpen: () => updateStage("search", "running"),
+              onSearchComplete: (d) => { setCompanyContext(d); updateStage("search", "success"); updateStage("company_analysis", "running"); },
+              onCompanyAnalysis: (d) => { setCompanyAnalysis(d); updateStage("company_analysis", "success"); updateStage("sales_analysis", "running"); },
+              onSalesAnalysis: (d) => { setSalesAnalysis(d); updateStage("sales_analysis", "success"); updateStage("messages", "running"); },
+              onMessages: (d) => { setMessages(d); updateStage("messages", "success"); setGeneratedAt(new Date().toISOString()); },
+              onError: (stage) => { if (stage !== "connection") updateStage(stage, "failed"); },
+              onStageFailed: (stage) => updateStage(stage, "failed"),
+              onDone: () => { useAnalysisCount(); setLoading(false); },
+            });
           }
         })
         .catch(console.error);
-    }
-
-    // Handle ?reanalyze=xxx from history page
-    const params = new URLSearchParams(window.location.search);
-    const reanalyzeId = params.get("reanalyze");
-    if (reanalyzeId) {
-      fetch(`/api/history/${reanalyzeId}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.input_text) {
-            handleAnalyze(data.input_text);
-          }
-        })
-        .catch(console.error);
-      // Clean up URL
-      window.history.replaceState({}, "", "/");
     }
   }, []);
 
