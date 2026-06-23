@@ -1,4 +1,5 @@
 # ai-customer-analysis/backend/app/routers/analysis.py
+import logging
 import uuid
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -8,6 +9,7 @@ from app.database import async_session
 from app.models.analysis_task import AnalysisTask
 from app.services.analysis.orchestrator import Orchestrator
 
+logger = logging.getLogger("uvicorn")
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 
 
@@ -26,8 +28,9 @@ async def create_analysis(req: AnalysisRequest):
     async with async_session() as db:
         db.add(task)
         await db.commit()
+    logger.info(f"创建分析任务: {task_id}")
 
-    return {"task_id": str(task_id)}
+    return {"task_id": task_id}
 
 
 @router.get("/{task_id}")
@@ -71,8 +74,10 @@ async def stream_analysis(task_id: str, request: Request):
         task = result.scalar_one_or_none()
 
     if not task:
+        logger.warning(f"任务不存在: {task_id}")
         raise HTTPException(status_code=404, detail="任务不存在")
 
+    logger.info(f"开始 SSE 流: {task_id}")
     async def event_stream():
         orchestrator = Orchestrator()
         # Check if already completed
