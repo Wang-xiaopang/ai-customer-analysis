@@ -7,7 +7,7 @@ logger = logging.getLogger("uvicorn")
 
 SEARCH_PROMPT = """你是一个企业信息搜索助手。用户会输入一个公司名称或官网，你需要搜索并整理该公司的基本信息。
 
-⚠️ 当前时间是 2026 年 6 月。请优先搜索 2025-2026 年的最新信息！
+⚠️ 当前时间是 {today}。请优先搜索近一年的最新信息！
 
 请通过联网搜索获取以下信息，并以 JSON 格式返回：
 
@@ -41,10 +41,13 @@ class SearchService:
         self.llm = get_llm()
 
     async def search(self, company_input: str) -> dict:
-        logger.info(f"DeepSeek 联网搜索: {company_input}")
+        from datetime import date
+        today = date.today().strftime("%Y年%m月%d日")
+        prompt = SEARCH_PROMPT.replace("{today}", today)
 
+        logger.info(f"DeepSeek 联网搜索: {company_input}")
         messages = [
-            {"role": "system", "content": SEARCH_PROMPT},
+            {"role": "system", "content": prompt},
             {"role": "user", "content": company_input},
         ]
 

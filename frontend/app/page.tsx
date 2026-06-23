@@ -121,7 +121,7 @@ export default function Home() {
     }
   }, []);
 
-  // Restore task from URL hash on page refresh
+  // Restore task from URL hash (history "查看" / page refresh)
   useEffect(() => {
     const hash = window.location.hash;
     if (hash.startsWith("#task=")) {
@@ -135,10 +135,27 @@ export default function Home() {
             if (data.company_analysis) setCompanyAnalysis(data.company_analysis);
             if (data.sales_analysis) setSalesAnalysis(data.sales_analysis);
             if (data.messages) setMessages(data.messages);
-            setGeneratedAt(data.generated_at);
+            if (data.input_text) setLastInput(data.input_text);
+            if (data.generated_at) setGeneratedAt(data.generated_at);
           }
         })
         .catch(console.error);
+    }
+
+    // Handle ?reanalyze=xxx from history page
+    const params = new URLSearchParams(window.location.search);
+    const reanalyzeId = params.get("reanalyze");
+    if (reanalyzeId) {
+      fetch(`/api/history/${reanalyzeId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.input_text) {
+            handleAnalyze(data.input_text);
+          }
+        })
+        .catch(console.error);
+      // Clean up URL
+      window.history.replaceState({}, "", "/");
     }
   }, []);
 
