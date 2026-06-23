@@ -7,26 +7,27 @@
 
 services:
   db:
-    image: postgres:16-alpine
+    image: mysql:8.4
     environment:
-      POSTGRES_USER: ${DB_USER:-customer_analysis}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME:-customer_analysis}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${DB_NAME:-customer_analysis}
+      MYSQL_USER: ${DB_USER:-customer_analysis}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-customer_analysis}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root_password}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://${DB_USER:-customer_analysis}:${DB_PASSWORD}@db:5432/${DB_NAME:-customer_analysis}
+      DATABASE_URL: mysql+aiomysql://${DB_USER:-customer_analysis}:${DB_PASSWORD}@db:3306/${DB_NAME:-customer_analysis}
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
@@ -51,4 +52,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  mysqldata:

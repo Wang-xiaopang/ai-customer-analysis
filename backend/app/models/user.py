@@ -14,5 +14,5 @@ class User(Base, UUIDMixin, TimestampMixin):
     analysis_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     bonus_remaining: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime, server_default=func.now(), onupdate=func.now()
     )

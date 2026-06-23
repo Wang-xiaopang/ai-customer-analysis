@@ -21,7 +21,7 @@ async def create_analysis(req: AnalysisRequest):
     if not req.input.strip():
         raise HTTPException(status_code=400, detail="请输入公司名称或网址")
 
-    task_id = uuid.uuid4()
+    task_id = str(uuid.uuid4())
     task = AnalysisTask(id=task_id, input_text=req.input.strip(), status="pending")
     async with async_session() as db:
         db.add(task)

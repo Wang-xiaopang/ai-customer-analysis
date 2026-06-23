@@ -1,17 +1,17 @@
 # ai-customer-analysis/docker-compose.dev.yml
-version: "3.9"
 
 services:
   db:
-    image: postgres:16-alpine
+    image: mysql:8.4
     environment:
-      POSTGRES_USER: customer_analysis
-      POSTGRES_PASSWORD: customer_analysis_dev
-      POSTGRES_DB: customer_analysis
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: customer_analysis
+      MYSQL_USER: customer_analysis
+      MYSQL_PASSWORD: customer_analysis_dev
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
 
 volumes:
-  pgdata:
+  mysqldata:

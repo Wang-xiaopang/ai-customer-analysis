@@ -2,7 +2,6 @@
 import asyncio
 import json
 import time
-import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 
@@ -30,7 +29,7 @@ class Orchestrator:
         return f"event: {event}\ndata: {payload}\n\n"
 
     async def run(
-        self, task_id: uuid.UUID, input_text: str
+        self, task_id: str, input_text: str
     ) -> AsyncGenerator[str, None]:
         """Run 4-stage analysis, yield SSE events as strings."""
         start_time = time.time()

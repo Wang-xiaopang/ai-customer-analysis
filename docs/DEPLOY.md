@@ -3,7 +3,7 @@
 ## 架构
 
 ```
-用户 → 80端口 → Frontend (Next.js) → /api/* → Backend (FastAPI) → PostgreSQL
+用户 → 80端口 → Frontend (Next.js) → /api/* → Backend (FastAPI) → MySQL
 ```
 
 三个容器通过 Docker Compose 编排，前端对外暴露 80 端口。
@@ -129,7 +129,7 @@ docker compose down
 docker compose down -v
 
 # 数据库备份
-docker compose exec db pg_dump -U customer_analysis customer_analysis > backup.sql
+docker compose exec db mysqldump -u customer_analysis -p customer_analysis > backup.sql
 ```
 
 ---
