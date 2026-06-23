@@ -8,9 +8,17 @@ interface HistoryItem {
   task_id: string;
   company_name: string;
   status: string;
+  verdict: string;
+  verdict_text: string;
   generated_at: string | null;
   created_at: string | null;
 }
+
+const VERDICT_STYLE: Record<string, string> = {
+  recommended: "bg-[#34C759]/10 text-[#34C759]",
+  cautious: "bg-[#FF9500]/10 text-[#FF9500]",
+  not_recommended: "bg-[#FF3B30]/10 text-[#FF3B30]",
+};
 
 export default function HistoryPage() {
   const [items, setItems] = useState<HistoryItem[]>([]);
@@ -81,7 +89,14 @@ export default function HistoryPage() {
             className="apple-card flex items-center justify-between p-4"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-medium text-[#1d1d1f]">{item.company_name}</p>
+              <div className="flex items-center gap-2">
+                <p className="truncate text-[15px] font-medium text-[#1d1d1f]">{item.company_name}</p>
+                {item.verdict && (
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${VERDICT_STYLE[item.verdict] || ""}`}>
+                    {item.verdict_text}
+                  </span>
+                )}
+              </div>
               <p className="mt-0.5 text-[12px] text-[#86868b]">
                 {(() => {
                   const iso = item.generated_at || item.created_at;

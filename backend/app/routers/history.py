@@ -24,6 +24,8 @@ async def list_history(limit: int = 20, offset: int = 0):
             "task_id": str(t.id),
             "company_name": (t.company_context or {}).get("company_name", "") or t.input_text,
             "status": t.status,
+            "verdict": ((t.sales_analysis or {}).get("executive_summary") or {}).get("verdict", ""),
+            "verdict_text": ((t.sales_analysis or {}).get("executive_summary") or {}).get("verdict_text", ""),
             "generated_at": t.generated_at.isoformat() if t.generated_at else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
         }
