@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     serpapi_api_key: str = ""  # 使用 DuckDuckGo 免费搜索时可留空
     cors_origin: str = "http://localhost:3000"
-    analysis_timeout_seconds: int = 30
+    analysis_timeout_seconds: int = 90
 
     class Config:
         env_file = ".env"

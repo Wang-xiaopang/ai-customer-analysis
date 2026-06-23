@@ -22,7 +22,7 @@ export function createSSEConnection(taskId: string, callbacks: SSECallback): () 
       callbacks.onError?.("connection", "分析服务响应超时，请稍后重试");
       eventSource.close();
     }
-  }, 15000);
+  }, 30000);
 
   const markReceived = () => {
     if (!received) {
