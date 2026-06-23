@@ -58,12 +58,51 @@ export default function Home() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [email, setEmail] = useState("");
   const [pendingInput, setPendingInput] = useState("");
+  const [allDone, setAllDone] = useState(false);
   const closeRef = useRef<(() => void) | null>(null);
 
   const updateStage = (stage: string, status: "running" | "success" | "failed") => {
     setStages((prev) =>
       prev.map((s) => (s.stage === stage ? { ...s, status } : s))
     );
+  };
+
+  // ━━━ 计时器驱动进度（不依赖 SSE 事件到达速度）━━━
+  const STAGE_TIMINGS = [
+    { stage: "search", startSec: 0 },
+    { stage: "company_analysis", startSec: 4 },
+    { stage: "sales_analysis", startSec: 12 },
+    { stage: "messages", startSec: 20 },
+  ];
+
+  useEffect(() => {
+    if (!loading || allDone) return;
+    const base = startTime || Date.now();
+    const timer = setInterval(() => {
+      const elapsed = (Date.now() - base) / 1000;
+      setStages((prev) => {
+        let changed = false;
+        const next = prev.map((s, i) => {
+          const t = STAGE_TIMINGS[i];
+          if (elapsed >= t.startSec && s.status === "pending") {
+            changed = true;
+            return { ...s, status: "running" as const };
+          }
+          return s;
+        });
+        // 所有阶段都完成了
+        if (elapsed >= 30 && !allDone) {
+          // 等 SSE done 来收尾
+        }
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [loading, startTime, allDone]);
+
+  const markAllSuccess = () => {
+    setAllDone(true);
+    setStages((prev) => prev.map((s) => ({ ...s, status: "success" as const })));
   };
 
   const handleAnalyze = useCallback(async (input: string) => {
@@ -136,7 +175,7 @@ export default function Home() {
           updateStage(stage, "failed");
         },
         onDone: () => {
-          // 分析成功完成才扣次数
+          markAllSuccess();
           useAnalysisCount();
           setLoading(false);
         },
@@ -178,7 +217,7 @@ export default function Home() {
               onMessages: (d) => { setMessages(d); updateStage("messages", "success"); setGeneratedAt(new Date().toISOString()); },
               onError: (stage) => { if (stage !== "connection") updateStage(stage, "failed"); },
               onStageFailed: (stage) => updateStage(stage, "failed"),
-              onDone: () => { useAnalysisCount(); setLoading(false); },
+              onDone: () => { markAllSuccess(); useAnalysisCount(); setLoading(false); },
             });
           }
         })
