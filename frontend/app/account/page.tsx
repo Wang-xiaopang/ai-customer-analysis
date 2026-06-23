@@ -107,33 +107,38 @@ export default function AccountPage() {
         </div>
 
         {/* Email binding */}
-        {!email && (
-          <div className="apple-card p-5">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f5f7]">
-                <Mail className="h-4 w-4 text-[#86868b]" />
-              </div>
-              <div className="flex-1">
-                <input
-                  type="email"
-                  value={inputEmail}
-                  onChange={(e) => setInputEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSaveEmail()}
-                  placeholder="输入邮箱绑定"
-                  className="apple-input !py-2.5 !text-[14px]"
-                />
-              </div>
-              <button
-                onClick={handleSaveEmail}
-                disabled={!isValidEmail(inputEmail.trim())}
-                className="apple-btn-primary !rounded-full !px-5 !py-2.5 !text-[13px] disabled:opacity-40 shrink-0"
-              >
-                {saved ? "已绑定" : "绑定"}
-              </button>
+        <div className="apple-card p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f5f7]">
+              <Mail className="h-4 w-4 text-[#86868b]" />
             </div>
-            {email && <p className="text-[12px] text-[#86868b]">✓ 已绑定 {email}</p>}
+            <div>
+              <p className="text-[13px] font-medium text-[#1d1d1f]">
+                {email ? "已绑定邮箱" : "绑定邮箱获得 10 次奖励"}
+              </p>
+              {email && (
+                <p className="text-[14px] text-[#1d1d1f]">{email}</p>
+              )}
+            </div>
           </div>
-        )}
+          <div className="flex gap-2">
+            <input
+              type="email"
+              value={inputEmail}
+              onChange={(e) => setInputEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSaveEmail()}
+              placeholder={email ? "修改邮箱（不会重置奖励次数）" : "your@email.com"}
+              className="apple-input flex-1 !py-2.5 !text-[14px]"
+            />
+            <button
+              onClick={handleSaveEmail}
+              disabled={!isValidEmail(inputEmail.trim())}
+              className="apple-btn-primary !rounded-full !px-5 !py-2.5 !text-[13px] disabled:opacity-40 shrink-0"
+            >
+              {saved ? "已保存" : email ? "修改" : "绑定"}
+            </button>
+          </div>
+        </div>
 
         {/* Contact */}
         <div className="apple-card p-5">

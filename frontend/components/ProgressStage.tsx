@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, XCircle, Search, Building2, Target, MessageSquare } from "lucide-react";
 import type { StageStatus } from "@/lib/types";
 
 interface Props {
@@ -9,19 +9,12 @@ interface Props {
   startTime?: number;
 }
 
-const STAGE_LABELS: Record<string, string> = {
-  search: "搜索企业信息",
-  company_analysis: "企业分析",
-  sales_analysis: "销售策略分析",
-  messages: "生成开发信",
-};
-
-const STAGE_SUBTITLES: Record<string, string> = {
-  search: "AI 正在联网搜索企业信息",
-  company_analysis: "AI 正在分析企业画像",
-  sales_analysis: "AI 正在生成销售策略",
-  messages: "AI 正在撰写开发信",
-};
+const STAGE_CONFIG = {
+  search: { label: "搜索信息", icon: Search },
+  company_analysis: { label: "企业分析", icon: Building2 },
+  sales_analysis: { label: "销售策略", icon: Target },
+  messages: { label: "开发信", icon: MessageSquare },
+} as const;
 
 export default function ProgressStage({ stages, startTime }: Props) {
   const [elapsed, setElapsed] = useState(0);
@@ -32,102 +25,117 @@ export default function ProgressStage({ stages, startTime }: Props) {
     timerRef.current = setInterval(() => {
       setElapsed(Math.floor((Date.now() - base) / 1000));
     }, 1000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [startTime]);
 
-  const runningStage = stages.find((s) => s.status === "running");
-  const completedCount = stages.filter((s) => s.status === "success").length;
-  const hasFailed = stages.some((s) => s.status === "failed");
+  const runningKey = stages.find((s) => s.status === "running")?.stage;
+  const failedKey = stages.find((s) => s.status === "failed")?.stage;
 
   return (
-    <div className="mx-auto max-w-[380px] pt-16 text-center">
-      {/* Apple-style pulsing ring */}
-      <div className="mb-8 inline-flex items-center justify-center">
-        <div className="relative flex h-16 w-16 items-center justify-center">
-          {/* Outer rings */}
+    <div className="mx-auto max-w-[480px] pt-16 text-center">
+      {/* Apple pulsing ring */}
+      <div className="mb-6 inline-flex items-center justify-center">
+        <div className="relative flex h-14 w-14 items-center justify-center">
           <div className="absolute inset-0 animate-[ping_2s_ease-out_infinite] rounded-full border-2 border-[#007AFF]/20" />
           <div className="absolute inset-0 animate-[ping_2s_ease-out_0.5s_infinite] rounded-full border border-[#007AFF]/10" />
-          {/* Center dot */}
-          <div className="h-3 w-3 animate-pulse rounded-full bg-[#007AFF]" />
+          <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#007AFF]" />
         </div>
       </div>
 
-      {/* Status */}
-      <p className="mb-1 text-[17px] font-semibold tracking-tight text-[#1d1d1f]">
-        {runningStage ? STAGE_LABELS[runningStage.stage] : "正在分析…"}
+      {/* Status text */}
+      <p className="mb-2 text-[17px] font-semibold tracking-tight text-[#1d1d1f]">
+        {runningKey
+          ? STAGE_CONFIG[runningKey as keyof typeof STAGE_CONFIG]?.label
+          : failedKey
+          ? "分析中断"
+          : "正在分析…"}
       </p>
-      <p className="mb-8 text-[13px] text-[#86868b]">
-        {runningStage ? STAGE_SUBTITLES[runningStage.stage] : ""}
+      <p className="mb-10 text-[13px] text-[#86868b]">
+        {runningKey === "search"
+          ? "AI 正在联网搜索企业信息"
+          : runningKey === "company_analysis"
+          ? "AI 正在分析企业画像与信号"
+          : runningKey === "sales_analysis"
+          ? "AI 正在生成销售策略与切入点"
+          : runningKey === "messages"
+          ? "AI 正在撰写个性化开发信"
+          : failedKey
+          ? "请稍后重试"
+          : "准备中…"}
+        <span className="ml-2 tabular-nums">{elapsed > 0 ? `${elapsed}s` : ""}</span>
       </p>
 
-      {/* Steps */}
-      <div className="space-y-0">
-        {stages.map((s, i) => (
-          <div key={s.stage}>
-            <div className="flex items-center gap-3 py-2">
-              {/* Step number / icon */}
+      {/* Horizontal progress bar with 4 nodes */}
+      <div className="relative flex items-center justify-between px-4">
+        {/* Background track */}
+        <div className="absolute left-8 right-8 top-[18px] h-0.5 bg-[#e5e5e7]" />
+        {/* Filled track */}
+        <div
+          className="absolute left-8 top-[18px] h-0.5 bg-[#007AFF] transition-all duration-700"
+          style={{
+            right: `${
+              stages.filter((s) => s.status === "pending").length * 25 + 8
+            }%`,
+          }}
+        />
+
+        {stages.map((s, i) => {
+          const cfg = STAGE_CONFIG[s.stage as keyof typeof STAGE_CONFIG];
+          const Icon = cfg.icon;
+          const isDone = s.status === "success";
+          const isRunning = s.status === "running";
+          const isFailed = s.status === "failed";
+
+          return (
+            <div key={s.stage} className="relative z-10 flex flex-col items-center gap-2">
+              {/* Node */}
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-all duration-500 ${
-                  s.status === "success"
-                    ? "bg-[#34C759] text-white"
-                    : s.status === "running"
-                    ? "bg-[#007AFF] text-white"
-                    : s.status === "failed"
+                className={`flex h-[36px] w-[36px] items-center justify-center rounded-full transition-all duration-500 ${
+                  isDone
+                    ? "bg-[#34C759] text-white shadow-[0_0_0_4px_rgba(52,199,89,0.15)]"
+                    : isRunning
+                    ? "bg-[#007AFF] text-white shadow-[0_0_0_4px_rgba(0,122,255,0.2)] animate-pulse"
+                    : isFailed
                     ? "bg-[#FF3B30] text-white"
-                    : "bg-[#f5f5f7] text-[#86868b]"
+                    : "bg-white border-2 border-[#e5e5e7] text-[#86868b]"
                 }`}
               >
-                {s.status === "success" ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : s.status === "failed" ? (
-                  <XCircle className="h-4 w-4" />
-                ) : s.status === "running" ? (
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
+                {isDone ? (
+                  <CheckCircle2 className="h-[18px] w-[18px]" />
+                ) : isFailed ? (
+                  <XCircle className="h-[18px] w-[18px]" />
+                ) : isRunning ? (
+                  <Icon className="h-[16px] w-[16px]" />
                 ) : (
-                  <span className="text-[12px] font-semibold">{i + 1}</span>
+                  <span className="text-[13px] font-semibold">{i + 1}</span>
                 )}
               </div>
-
               {/* Label */}
-              <div className="text-left">
-                <span
-                  className={`text-[14px] ${
-                    s.status === "running"
-                      ? "font-semibold text-[#1d1d1f]"
-                      : s.status === "success"
-                      ? "text-[#1d1d1f]"
-                      : s.status === "failed"
-                      ? "text-[#FF3B30]"
-                      : "text-[#86868b]"
-                  }`}
-                >
-                  {STAGE_LABELS[s.stage]}
-                </span>
-                {s.status === "running" && (
-                  <span className="ml-2 text-[12px] text-[#007AFF]">
-                    {elapsed}s
-                  </span>
-                )}
-              </div>
+              <span
+                className={`text-[11px] whitespace-nowrap transition-colors ${
+                  isDone
+                    ? "font-medium text-[#34C759]"
+                    : isRunning
+                    ? "font-semibold text-[#007AFF]"
+                    : isFailed
+                    ? "font-medium text-[#FF3B30]"
+                    : "text-[#86868b]"
+                }`}
+              >
+                {cfg.label}
+              </span>
             </div>
-
-            {/* Connector line */}
-            {i < stages.length - 1 && (
-              <div className="ml-[13px] h-4 w-px bg-[#e5e5e7]" />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Footer */}
-      <p className="mt-6 text-[12px] text-[#86868b]">
-        {hasFailed
+      <p className="mt-8 text-[12px] text-[#86868b]">
+        {failedKey
           ? "部分阶段失败，分析结果可能不完整"
-          : completedCount > 0
-          ? `已完成 ${completedCount}/4，预计还需 ${Math.max(5, (4 - completedCount) * 10)}–${Math.max(8, (4 - completedCount) * 15)} 秒`
-          : "正在搜索企业信息，预计 15–30 秒"}
+          : stages.filter((s) => s.status === "success").length === 4
+          ? "分析完成，正在整理报告…"
+          : `预计还需 ${Math.max(5, (4 - stages.filter(s => s.status === "success").length) * 10)}–${Math.max(8, (4 - stages.filter(s => s.status === "success").length) * 15)} 秒`}
       </p>
     </div>
   );
