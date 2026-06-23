@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getFreeUsedToday, getBonusRemaining, getStoredEmail, setStoredEmail, isValidEmail } from "@/lib/storage";
+import { getFreeUsedToday, getBonusRemaining, getStoredEmail, setStoredEmail, isValidEmail, isSuperAdmin } from "@/lib/storage";
 import { Mail, Zap, Gift, Crown, MessageCircle } from "lucide-react";
 
 export default function AccountPage() {
@@ -92,19 +92,34 @@ export default function AccountPage() {
           </div>
         )}
 
-        {/* Priority 3: Paid (future) */}
-        <div className="apple-card p-5">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#86868b]">使用优先级 ③（即将上线）</div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f5f7]">
-              <Crown className="h-4 w-4 text-[#86868b]" />
-            </div>
-            <div>
-              <p className="text-[13px] font-medium text-[#1d1d1f]">Pro 会员 · 100 次/月 · ¥99/月</p>
-              <p className="text-[12px] text-[#86868b]">免费和奖励用完后自动使用。联系客服开通</p>
+        {/* Priority 3: SuperVIP / Pro */}
+        {isSuperAdmin() ? (
+          <div className="apple-card p-5 bg-gradient-to-r from-[#007AFF]/5 to-[#34C759]/5 border-[#007AFF]/20">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#007AFF]">使用优先级 ③ · SuperVIP</div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#007AFF]/10">
+                <Crown className="h-4 w-4 text-[#007AFF]" />
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-[#007AFF]">SuperVIP · 1,000,000 次/月</p>
+                <p className="text-[12px] text-[#86868b]">超级管理员，不受任何次数限制</p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="apple-card p-5">
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#86868b]">使用优先级 ③（即将上线）</div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f5f5f7]">
+                <Crown className="h-4 w-4 text-[#86868b]" />
+              </div>
+              <div>
+                <p className="text-[13px] font-medium text-[#1d1d1f]">Pro 会员 · 100 次/月 · ¥99/月</p>
+                <p className="text-[12px] text-[#86868b]">免费和奖励用完后自动使用。联系客服开通</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Email binding */}
         <div className="apple-card p-5">
