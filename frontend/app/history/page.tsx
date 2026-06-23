@@ -83,11 +83,13 @@ export default function HistoryPage() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-medium text-[#1d1d1f]">{item.company_name}</p>
               <p className="mt-0.5 text-[12px] text-[#86868b]">
-                {item.generated_at
-                  ? new Date(item.generated_at).toLocaleString("zh-CN")
-                  : item.created_at
-                  ? new Date(item.created_at).toLocaleString("zh-CN")
-                  : "—"}
+                {(() => {
+                  const iso = item.generated_at || item.created_at;
+                  if (!iso) return "—";
+                  const d = new Date(iso);
+                  d.setHours(d.getHours() + 8);
+                  return d.toLocaleString("zh-CN");
+                })()}
               </p>
             </div>
             <div className="ml-4 flex shrink-0 items-center gap-2">

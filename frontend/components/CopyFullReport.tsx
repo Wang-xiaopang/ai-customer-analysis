@@ -24,7 +24,8 @@ export default function CopyFullReport(props: Props) {
     lines.push("");
     lines.push(`公司：${companyName || "—"}`);
     if (generatedAt) {
-      lines.push(`分析时间：${new Date(generatedAt).toLocaleString("zh-CN")}`);
+      const d = new Date(generatedAt); d.setHours(d.getHours() + 8);
+      lines.push(`分析时间：${d.toLocaleString("zh-CN")}`);
     }
     if (companyContext?.data_confidence) {
       lines.push(`数据完整度：${companyContext.data_confidence.score}% · ${companyContext.data_confidence.level}`);
@@ -101,7 +102,19 @@ export default function CopyFullReport(props: Props) {
   };
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(buildReportText());
+    const text = buildReportText();
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // HTTP 环境 fallback
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

@@ -1,19 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getTodayAnalysisCount, getBonusRemaining, getStoredEmail, setStoredEmail, isValidEmail } from "@/lib/storage";
+import { getFreeUsedToday, getBonusRemaining, getTotalRemaining, getStoredEmail, setStoredEmail, isValidEmail } from "@/lib/storage";
 import { Mail, Zap, Crown, MessageCircle } from "lucide-react";
 
 export default function AccountPage() {
-  const [todayCount, setTodayCount] = useState(0);
+  const [freeUsed, setFreeUsed] = useState(0);
   const [bonus, setBonus] = useState(0);
+  const [total, setTotal] = useState(0);
   const [email, setEmail] = useState<string | null>(null);
   const [inputEmail, setInputEmail] = useState("");
   const [saved, setSaved] = useState(false);
 
   const refresh = () => {
-    setTodayCount(getTodayAnalysisCount());
+    setFreeUsed(getFreeUsedToday());
     setBonus(getBonusRemaining());
+    setTotal(getTotalRemaining());
     setEmail(getStoredEmail());
   };
 
@@ -29,8 +31,6 @@ export default function AccountPage() {
       refresh();
     }
   };
-
-  const totalRemaining = Math.max(0, 3 - todayCount) + bonus;
 
   return (
     <div>
@@ -56,9 +56,14 @@ export default function AccountPage() {
               <Zap className="h-4 w-4 text-[#007AFF]" />
             </div>
             <div>
-              <p className="text-[22px] font-bold tracking-tight text-[#1d1d1f]">{totalRemaining} 次</p>
-              <p className="text-[12px] text-[#86868b]">
-                今日已用 {todayCount} 次 · 奖励剩余 {bonus} 次
+              <p className="text-[22px] font-bold tracking-tight text-[#1d1d1f]">{total} 次</p>
+              <p className="text-[12px]">
+                {freeUsed >= 3 ? (
+                  <span className="text-[#FF3B30] font-medium">今日免费 3 次已用完</span>
+                ) : (
+                  <span className="text-[#86868b]">今日免费剩余 {3 - freeUsed} 次</span>
+                )}
+                <span className="text-[#86868b]"> · 奖励剩余 {bonus} 次</span>
               </p>
             </div>
           </div>
@@ -75,7 +80,7 @@ export default function AccountPage() {
               {email ? (
                 <p className="text-[14px] text-[#1d1d1f]">{email}</p>
               ) : (
-                <p className="text-[12px] text-[#86868b]">填写邮箱可获得额外 10 次分析</p>
+                <p className="text-[12px] text-[#86868b]">填写邮箱可获得额外 10 次（仅一次）</p>
               )}
             </div>
           </div>

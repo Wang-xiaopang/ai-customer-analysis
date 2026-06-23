@@ -15,7 +15,7 @@ import NextActionsCard from "@/components/NextActionsCard";
 import MessageCard from "@/components/MessageCard";
 import CopyFullReport from "@/components/CopyFullReport";
 import { createSSEConnection } from "@/lib/sse-client";
-import { incrementAnalysisCount, canAnalyze, setStoredEmail, isValidEmail } from "@/lib/storage";
+import { useAnalysisCount, canAnalyze, setStoredEmail, isValidEmail, getFreeUsedToday } from "@/lib/storage";
 import type {
   CompanyContext,
   CompanyAnalysis,
@@ -70,7 +70,14 @@ export default function Home() {
     if (!canAnalyze()) {
       setPendingInput(input);
       setShowEmailModal(true);
+      setError(null);
       return;
+    }
+
+    // 用完免费次数时的提示
+    const freeUsed = getFreeUsedToday();
+    if (freeUsed >= 3 && input !== lastInput) {
+      // 继续分析，消耗奖励次数
     }
 
     setLoading(true);
@@ -97,7 +104,6 @@ export default function Home() {
       const { task_id } = await res.json();
       setTaskId(task_id);
       window.location.hash = `task=${task_id}`;
-      incrementAnalysisCount();
 
       closeRef.current = createSSEConnection(task_id, {
         onSearchComplete: (data) => {
@@ -122,12 +128,13 @@ export default function Home() {
         },
         onError: (stage, message) => {
           if (stage !== "connection") updateStage(stage, "failed");
-          setError(message);
         },
         onStageFailed: (stage) => {
           updateStage(stage, "failed");
         },
         onDone: () => {
+          // 分析成功完成才扣次数
+          useAnalysisCount();
           setLoading(false);
         },
       });
@@ -192,6 +199,16 @@ export default function Home() {
     }
   };
 
+  // 转 UTC+8 显示
+  const toLocalTime = (iso: string) => {
+    const d = new Date(iso);
+    d.setHours(d.getHours() + 8); // UTC → UTC+8
+    return d.toLocaleString("zh-CN", {
+      month: "long", day: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  };
+
   const isComplete = companyAnalysis !== null || salesAnalysis !== null;
 
   return (
@@ -228,14 +245,7 @@ export default function Home() {
           <div className="flex items-center justify-between text-[13px] text-[#86868b]">
             <div className="flex items-center gap-4">
               {generatedAt && (
-                <span>
-                  {new Date(generatedAt).toLocaleString("zh-CN", {
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+                <span>{toLocalTime(generatedAt)}</span>
               )}
               {companyContext?.data_confidence && (
                 <span className="flex items-center gap-1.5">
