@@ -86,9 +86,7 @@ export default function HistoryPage() {
                 {(() => {
                   const iso = item.generated_at || item.created_at;
                   if (!iso) return "—";
-                  const d = new Date(iso);
-                  d.setHours(d.getHours() + 8);
-                  return d.toLocaleString("zh-CN");
+                  return new Date(iso).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" });
                 })()}
               </p>
             </div>

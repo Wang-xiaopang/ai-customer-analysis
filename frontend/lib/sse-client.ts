@@ -2,6 +2,7 @@ import type { CompanyContext, CompanyAnalysis, SalesAnalysis, Messages } from ".
 
 type SSECallback = {
   onOpen?: () => void;
+  onStageStart?: (stage: string) => void;
   onSearchComplete?: (data: CompanyContext) => void;
   onCompanyAnalysis?: (data: CompanyAnalysis) => void;
   onSalesAnalysis?: (data: SalesAnalysis) => void;
@@ -36,6 +37,11 @@ export function createSSEConnection(taskId: string, callbacks: SSECallback): () 
       clearTimeout(timeoutId);
     }
   };
+
+  eventSource.addEventListener("stage_start", (e) => {
+    const data = JSON.parse(e.data);
+    callbacks.onStageStart?.(data.stage);
+  });
 
   eventSource.addEventListener("search_complete", (e) => {
     markReceived();

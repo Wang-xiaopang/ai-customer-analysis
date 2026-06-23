@@ -24,8 +24,7 @@ export default function CopyFullReport(props: Props) {
     lines.push("");
     lines.push(`公司：${companyName || "—"}`);
     if (generatedAt) {
-      const d = new Date(generatedAt); d.setHours(d.getHours() + 8);
-      lines.push(`分析时间：${d.toLocaleString("zh-CN")}`);
+      lines.push(`分析时间：${new Date(generatedAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}`);
     }
     if (companyContext?.data_confidence) {
       lines.push(`数据完整度：${companyContext.data_confidence.score}% · ${companyContext.data_confidence.level}`);

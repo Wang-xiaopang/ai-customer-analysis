@@ -74,6 +74,7 @@ class Orchestrator:
 
         # --- Stage 1: Search ---
         logger.info("阶段1: 开始搜索...")
+        yield self._sse_event("stage_start", {"stage": "search"})
         try:
             company_context = await asyncio.wait_for(
                 self.search.search(input_text), timeout=10
@@ -98,6 +99,7 @@ class Orchestrator:
 
         # --- Stage 2: Company Analysis ---
         logger.info("阶段2: 开始企业分析...")
+        yield self._sse_event("stage_start", {"stage": "company_analysis"})
         try:
             remaining = self.timeout - (time.time() - start_time)
             if remaining <= 0:
@@ -121,6 +123,7 @@ class Orchestrator:
         # --- Stage 3: Sales Analysis ---
         if company_analysis:
             logger.info("阶段3: 开始销售分析...")
+            yield self._sse_event("stage_start", {"stage": "sales_analysis"})
             try:
                 remaining = self.timeout - (time.time() - start_time)
                 if remaining <= 0:
@@ -145,6 +148,7 @@ class Orchestrator:
         # --- Stage 4: Message Generation ---
         if company_analysis and sales_analysis:
             logger.info("阶段4: 开始生成开发信...")
+            yield self._sse_event("stage_start", {"stage": "messages"})
             try:
                 remaining = self.timeout - (time.time() - start_time)
                 if remaining <= 0:

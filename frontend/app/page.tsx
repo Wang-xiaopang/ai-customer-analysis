@@ -109,20 +109,20 @@ export default function Home() {
         onOpen: () => {
           updateStage("search", "running");
         },
+        onStageStart: (stage) => {
+          updateStage(stage, "running");
+        },
         onSearchComplete: (data) => {
           setCompanyContext(data);
           updateStage("search", "success");
-          setTimeout(() => updateStage("company_analysis", "running"), 400);
         },
         onCompanyAnalysis: (data) => {
           setCompanyAnalysis(data);
           updateStage("company_analysis", "success");
-          setTimeout(() => updateStage("sales_analysis", "running"), 400);
         },
         onSalesAnalysis: (data) => {
           setSalesAnalysis(data);
           updateStage("sales_analysis", "success");
-          setTimeout(() => updateStage("messages", "running"), 400);
         },
         onMessages: (data) => {
           setMessages(data);
@@ -171,9 +171,10 @@ export default function Home() {
             setStages(INITIAL_STAGES.map((s) => ({ ...s })));
             closeRef.current = createSSEConnection(tid, {
               onOpen: () => updateStage("search", "running"),
-              onSearchComplete: (d) => { setCompanyContext(d); updateStage("search", "success"); setTimeout(() => updateStage("company_analysis", "running"), 400); },
-              onCompanyAnalysis: (d) => { setCompanyAnalysis(d); updateStage("company_analysis", "success"); setTimeout(() => updateStage("sales_analysis", "running"), 400); },
-              onSalesAnalysis: (d) => { setSalesAnalysis(d); updateStage("sales_analysis", "success"); setTimeout(() => updateStage("messages", "running"), 400); },
+              onStageStart: (stage) => updateStage(stage, "running"),
+              onSearchComplete: (d) => { setCompanyContext(d); updateStage("search", "success"); },
+              onCompanyAnalysis: (d) => { setCompanyAnalysis(d); updateStage("company_analysis", "success"); },
+              onSalesAnalysis: (d) => { setSalesAnalysis(d); updateStage("sales_analysis", "success"); },
               onMessages: (d) => { setMessages(d); updateStage("messages", "success"); setGeneratedAt(new Date().toISOString()); },
               onError: (stage) => { if (stage !== "connection") updateStage(stage, "failed"); },
               onStageFailed: (stage) => updateStage(stage, "failed"),
@@ -202,13 +203,12 @@ export default function Home() {
     }
   };
 
-  // 转 UTC+8 显示
-  const toLocalTime = (iso: string) => {
-    const d = new Date(iso);
-    d.setHours(d.getHours() + 8); // UTC → UTC+8
-    return d.toLocaleString("zh-CN", {
+  // ISO 字符串自带时区，JS Date 自动转本地时间
+  const fmtTime = (iso: string) => {
+    return new Date(iso).toLocaleString("zh-CN", {
       month: "long", day: "numeric",
       hour: "2-digit", minute: "2-digit",
+      timeZone: "Asia/Shanghai",
     });
   };
 
@@ -248,7 +248,7 @@ export default function Home() {
           <div className="flex items-center justify-between text-[13px] text-[#86868b]">
             <div className="flex items-center gap-4">
               {generatedAt && (
-                <span>{toLocalTime(generatedAt)}</span>
+                <span>{fmtTime(generatedAt)}</span>
               )}
               {companyContext?.data_confidence && (
                 <span className="flex items-center gap-1.5">
