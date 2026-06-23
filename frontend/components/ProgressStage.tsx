@@ -17,7 +17,7 @@ const STAGE_LABELS: Record<string, string> = {
 };
 
 const STAGE_SUBTITLES: Record<string, string> = {
-  search: "DuckDuckGo 搜索中",
+  search: "AI 正在联网搜索企业信息",
   company_analysis: "AI 正在分析企业画像",
   sales_analysis: "AI 正在生成销售策略",
   messages: "AI 正在撰写开发信",

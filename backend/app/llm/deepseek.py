@@ -15,15 +15,23 @@ class DeepSeekProvider(BaseLLMProvider):
 
     async def chat(self, messages: list[dict], **kwargs) -> str:
         try:
+            extra = {}
+            if kwargs.get("enable_search"):
+                extra["enable_search"] = True
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=kwargs.get("temperature", 0.3),
                 max_tokens=kwargs.get("max_tokens", 4096),
+                extra_body=extra if extra else None,
             )
             return response.choices[0].message.content or ""
         except Exception as e:
             raise RuntimeError(f"LLM 调用失败: {e}") from e
+
+    async def chat_with_search(self, messages: list[dict], **kwargs) -> str:
+        """带联网搜索的对话"""
+        return await self.chat(messages, enable_search=True, **kwargs)
 
     async def chat_json(self, messages: list[dict], json_schema: dict, **kwargs) -> dict:
         schema_str = json.dumps(json_schema, ensure_ascii=False, indent=2)
