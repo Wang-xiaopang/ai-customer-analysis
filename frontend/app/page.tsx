@@ -15,7 +15,7 @@ import NextActionsCard from "@/components/NextActionsCard";
 import MessageCard from "@/components/MessageCard";
 import CopyFullReport from "@/components/CopyFullReport";
 import { createSSEConnection } from "@/lib/sse-client";
-import { incrementAnalysisCount, canAnalyze } from "@/lib/storage";
+import { incrementAnalysisCount, canAnalyze, setStoredEmail } from "@/lib/storage";
 import type {
   CompanyContext,
   CompanyAnalysis,
@@ -43,6 +43,9 @@ export default function Home() {
   const [lastInput, setLastInput] = useState<string>("");
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number>(0);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [email, setEmail] = useState("");
+  const [pendingInput, setPendingInput] = useState("");
   const closeRef = useRef<(() => void) | null>(null);
 
   const updateStage = (stage: string, status: "running" | "success" | "failed") => {
@@ -53,7 +56,8 @@ export default function Home() {
 
   const handleAnalyze = useCallback(async (input: string) => {
     if (!canAnalyze()) {
-      setError("今日免费分析次数已用完（3次/天）。请输入邮箱获取额外10次。");
+      setPendingInput(input);
+      setShowEmailModal(true);
       return;
     }
 
@@ -163,6 +167,19 @@ export default function Home() {
     if (lastInput) handleAnalyze(lastInput);
   };
 
+  const handleEmailSubmit = () => {
+    if (email.trim() && email.includes("@")) {
+      setStoredEmail(email.trim());
+      setShowEmailModal(false);
+      setError(null);
+      // 自动继续分析
+      if (pendingInput) {
+        handleAnalyze(pendingInput);
+        setPendingInput("");
+      }
+    }
+  };
+
   const isComplete = companyAnalysis !== null || salesAnalysis !== null;
 
   return (
@@ -263,6 +280,44 @@ export default function Home() {
           {messages && <MessageCard messages={messages} />}
 
           <div className="h-8" />
+        </div>
+      )}
+
+      {/* ━━━ Email Modal ━━━ */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="apple-card mx-5 w-full max-w-[380px] p-8">
+            <h2 className="mb-2 text-[20px] font-bold tracking-tight text-[#1d1d1f]">
+              获取额外 10 次
+            </h2>
+            <p className="mb-6 text-[14px] leading-relaxed text-[#86868b]">
+              今日免费次数已用完。输入邮箱即可免费获得 10 次额外分析。
+            </p>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleEmailSubmit()}
+              placeholder="your@email.com"
+              className="apple-input mb-4"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="apple-btn-secondary flex-1 !rounded-full !py-2.5 !text-[14px]"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleEmailSubmit}
+                disabled={!email.trim() || !email.includes("@")}
+                className="apple-btn-primary flex-1 !rounded-full !py-2.5 !text-[14px] disabled:opacity-40"
+              >
+                获取 10 次
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
