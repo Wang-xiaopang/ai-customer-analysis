@@ -1,0 +1,10 @@
+# Railway deployment config
+# Railway auto-detects the Dockerfile
+
+[build]
+  builder = "DOCKERFILE"
+  dockerfilePath = "Dockerfile"
+
+[deploy]
+  healthcheckPath = "/api/health"
+  restartPolicyType = "ALWAYS"
