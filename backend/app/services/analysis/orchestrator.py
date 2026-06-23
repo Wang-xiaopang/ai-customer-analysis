@@ -81,6 +81,7 @@ class Orchestrator:
             await save_stage_result("company_context", company_context)
             logger.info(f"阶段1完成: 搜索到 {len(company_context.get('news', []))} 条结果, 置信度 {company_context.get('data_confidence', {}).get('score', '?')}%")
             yield self._sse_event("search_complete", company_context)
+            await asyncio.sleep(1)  # 给前端时间渲染阶段1完成
         except asyncio.TimeoutError:
             logger.error("阶段1超时: 搜索超过18秒")
             failed_stages.append("search")
@@ -107,6 +108,7 @@ class Orchestrator:
             await save_stage_result("company_analysis", company_analysis)
             logger.info("阶段2完成: 企业分析")
             yield self._sse_event("company_analysis", company_analysis)
+            await asyncio.sleep(1)  # 给前端时间渲染阶段2完成
         except asyncio.TimeoutError:
             logger.error("阶段2超时")
             failed_stages.append("company_analysis")
@@ -130,6 +132,7 @@ class Orchestrator:
                 await save_stage_result("sales_analysis", sales_analysis)
                 logger.info("阶段3完成: 销售分析")
                 yield self._sse_event("sales_analysis", sales_analysis)
+                await asyncio.sleep(1)  # 给前端时间渲染阶段3完成
             except asyncio.TimeoutError:
                 logger.error("阶段3超时")
                 failed_stages.append("sales_analysis")

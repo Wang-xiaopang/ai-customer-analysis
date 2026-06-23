@@ -112,17 +112,17 @@ export default function Home() {
         onSearchComplete: (data) => {
           setCompanyContext(data);
           updateStage("search", "success");
-          updateStage("company_analysis", "running");
+          setTimeout(() => updateStage("company_analysis", "running"), 400);
         },
         onCompanyAnalysis: (data) => {
           setCompanyAnalysis(data);
           updateStage("company_analysis", "success");
-          updateStage("sales_analysis", "running");
+          setTimeout(() => updateStage("sales_analysis", "running"), 400);
         },
         onSalesAnalysis: (data) => {
           setSalesAnalysis(data);
           updateStage("sales_analysis", "success");
-          updateStage("messages", "running");
+          setTimeout(() => updateStage("messages", "running"), 400);
         },
         onMessages: (data) => {
           setMessages(data);
@@ -171,9 +171,9 @@ export default function Home() {
             setStages(INITIAL_STAGES.map((s) => ({ ...s })));
             closeRef.current = createSSEConnection(tid, {
               onOpen: () => updateStage("search", "running"),
-              onSearchComplete: (d) => { setCompanyContext(d); updateStage("search", "success"); updateStage("company_analysis", "running"); },
-              onCompanyAnalysis: (d) => { setCompanyAnalysis(d); updateStage("company_analysis", "success"); updateStage("sales_analysis", "running"); },
-              onSalesAnalysis: (d) => { setSalesAnalysis(d); updateStage("sales_analysis", "success"); updateStage("messages", "running"); },
+              onSearchComplete: (d) => { setCompanyContext(d); updateStage("search", "success"); setTimeout(() => updateStage("company_analysis", "running"), 400); },
+              onCompanyAnalysis: (d) => { setCompanyAnalysis(d); updateStage("company_analysis", "success"); setTimeout(() => updateStage("sales_analysis", "running"), 400); },
+              onSalesAnalysis: (d) => { setSalesAnalysis(d); updateStage("sales_analysis", "success"); setTimeout(() => updateStage("messages", "running"), 400); },
               onMessages: (d) => { setMessages(d); updateStage("messages", "success"); setGeneratedAt(new Date().toISOString()); },
               onError: (stage) => { if (stage !== "connection") updateStage(stage, "failed"); },
               onStageFailed: (stage) => updateStage(stage, "failed"),
