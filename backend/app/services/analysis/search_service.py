@@ -62,6 +62,8 @@ class SearchService:
         except Exception as e:
             logger.warning(f"搜索失败: {query} — {e}")
             return []
+
+    async def search(self, company_input: str) -> dict:
         input_type = self._detect_input_type(company_input)
 
         if input_type == "url":
@@ -78,70 +80,39 @@ class SearchService:
         has_jobs = False
 
         # 并行搜索，每个查询限时 8 秒
-        web_query = f"{company_name}" if not website else company_name
-        web_task = self._timed_search(web_query, max_results=5, timeout=8)
+        web_task = self._timed_search(f"{company_name}", max_results=5, timeout=8)
         jobs_task = self._timed_search(f"{company_name} 招聘", max_results=5, timeout=8)
 
-        results = await asyncio.gather(web_task, jobs_task)
-        web_results = results[0]
-        jobs_results = results[1]
-        logger.info(f"搜索完成: 普通结果 {len(web_results)} 条, 招聘结果 {len(jobs_results)} 条")
+        web_results, jobs_results = await asyncio.gather(web_task, jobs_task)
+        logger.info(f"搜索完成: 普通 {len(web_results)} 条, 招聘 {len(jobs_results)} 条")
 
-        # Process web results
         for r in web_results:
             url = r.get("href", "")
             all_news.append({
-                "title": r.get("title", ""),
-                "url": url,
-                "snippet": r.get("body", ""),
-                "date": "",
+                "title": r.get("title", ""), "url": url,
+                "snippet": r.get("body", ""), "date": "",
             })
-
-            # Detect LinkedIn
             if not linkedin_found and "linkedin.com/company" in url.lower():
                 linkedin_found = True
-
-            # Detect website from results
             if not website and url and not self._is_social_media(url):
-                domain = self._extract_domain(url)
-                if domain:
-                    website = f"https://{domain}"
-
-            # Check for jobs
+                match = re.match(r"https?://([^/]+)", url)
+                if match:
+                    website = f"https://{match.group(1)}"
             if not has_jobs and self._is_jobs_related(r.get("title", ""), r.get("body", "")):
                 has_jobs = True
 
-        # Process news results
-        for r in news_results:
-            all_news.append({
-                "title": r.get("title", ""),
-                "url": r.get("url", ""),
-                "snippet": r.get("body", ""),
-                "date": r.get("date", ""),
-            })
-
-            if not linkedin_found and "linkedin.com/company" in r.get("url", "").lower():
-                linkedin_found = True
-
-            if not has_jobs and self._is_jobs_related(r.get("title", ""), r.get("body", "")):
-                has_jobs = True
-
-        # Process jobs results
         for r in jobs_results:
             if self._is_jobs_related(r.get("title", ""), r.get("body", "")):
                 has_jobs = True
-                # Add jobs-related results to news
                 all_news.append({
-                    "title": r.get("title", ""),
-                    "url": r.get("href", ""),
-                    "snippet": r.get("body", ""),
-                    "date": "",
+                    "title": r.get("title", ""), "url": r.get("href", ""),
+                    "snippet": r.get("body", ""), "date": "",
                 })
 
-        # Fetch website content
+        # 抓取官网内容
         if website:
             try:
-                async with httpx.AsyncClient(timeout=10) as client:
+                async with httpx.AsyncClient(timeout=8) as client:
                     resp = await client.get(website, follow_redirects=True)
                     html = resp.text
                     clean = re.sub(r"<[^>]+>", " ", html)
@@ -150,21 +121,15 @@ class SearchService:
             except Exception:
                 website_content = ""
 
-        # Calculate data confidence
         confidence = self._calculate_confidence(
-            has_website=bool(website_content),
-            news_count=len(all_news),
-            has_linkedin=linkedin_found,
-            has_jobs=has_jobs,
+            has_website=bool(website_content), news_count=len(all_news),
+            has_linkedin=linkedin_found, has_jobs=has_jobs,
         )
 
         return {
-            "company_name": company_name,
-            "website": website or "",
-            "industry": "",
-            "website_content": website_content,
-            "news": all_news[:15],
-            "data_confidence": confidence,
+            "company_name": company_name, "website": website or "",
+            "industry": "", "website_content": website_content,
+            "news": all_news[:15], "data_confidence": confidence,
         }
 
     def _calculate_confidence(
