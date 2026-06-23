@@ -27,9 +27,15 @@ async def create_analysis(req: AnalysisRequest):
     async with async_session() as db:
         task = AnalysisTask(id=task_id, input_text=req.input.strip(), status="pending")
         db.add(task)
-        await db.flush()  # 确保写入 MySQL
+        await db.flush()
         await db.commit()
-    logger.info(f"创建分析任务: {task_id}")
+        # 验证写入成功
+        result = await db.execute(select(AnalysisTask).where(AnalysisTask.id == task_id))
+        verify = result.scalar_one_or_none()
+        if verify:
+            logger.info(f"创建分析任务: {task_id} (已验证写入)")
+        else:
+            logger.error(f"写入验证失败: {task_id}")
 
     return {"task_id": task_id}
 
@@ -46,6 +52,7 @@ async def get_task(task_id: str):
         task = result.scalar_one_or_none()
 
     if not task:
+        logger.warning(f"查询不到任务: {task_id}")
         raise HTTPException(status_code=404, detail="任务不存在")
 
     return {
@@ -70,12 +77,18 @@ async def stream_analysis(task_id: str, request: Request):
     except ValueError:
         raise HTTPException(status_code=400, detail="无效的任务ID")
 
-    async with async_session() as db:
-        result = await db.execute(select(AnalysisTask).where(AnalysisTask.id == tid))
-        task = result.scalar_one_or_none()
-
-    if not task:
-        logger.warning(f"任务不存在: {task_id}")
+    task = None
+    for attempt in range(5):
+        async with async_session() as db:
+            result = await db.execute(select(AnalysisTask).where(AnalysisTask.id == tid))
+            task = result.scalar_one_or_none()
+        if task:
+            break
+        logger.warning(f"重试 {attempt + 1}/5: 任务 {task_id} 暂时不可见")
+        import asyncio
+        await asyncio.sleep(0.3)
+    else:
+        logger.error(f"重试5次后仍找不到任务: {task_id}")
         raise HTTPException(status_code=404, detail="任务不存在")
 
     logger.info(f"开始 SSE 流: {task_id}")
