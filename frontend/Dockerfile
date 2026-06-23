@@ -9,6 +9,9 @@ RUN npm config set registry https://registry.npmmirror.com && npm install
 
 COPY . .
 
+# 构建时指定后端地址，Docker 内部用 http://backend:8000
+ARG BACKEND_URL=http://backend:8000
+ENV BACKEND_URL=$BACKEND_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
