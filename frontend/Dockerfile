@@ -3,9 +3,9 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
-# npm 用阿里云镜像加速
-COPY package.json package-lock.json ./
-RUN npm config set registry https://registry.npmmirror.com && npm ci --omit=dev
+# 只用 package.json，不锁版本，自动适配 Linux 平台
+COPY package.json ./
+RUN npm config set registry https://registry.npmmirror.com && npm install
 
 COPY . .
 
