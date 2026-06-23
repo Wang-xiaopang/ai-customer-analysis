@@ -1,33 +1,53 @@
-# ai-customer-analysis/docker-compose.yml
-version: "3.9"
+# AI客户分析助手 — Production Docker Compose
+#
+# 启动:  docker compose up -d
+# 查看:  docker compose ps
+# 日志:  docker compose logs -f
+# 停止:  docker compose down
 
 services:
   db:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: ${DB_USER:-customer_analysis}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-in-production}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_NAME:-customer_analysis}
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-customer_analysis}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     environment:
-      DATABASE_URL: postgresql+asyncpg://${DB_USER:-customer_analysis}:${DB_PASSWORD:-change-me-in-production}@db:5432/${DB_NAME:-customer_analysis}
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-customer_analysis}:${DB_PASSWORD}@db:5432/${DB_NAME:-customer_analysis}
       LLM_PROVIDER: ${LLM_PROVIDER:-deepseek}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-chat}
       SERPAPI_API_KEY: ${SERPAPI_API_KEY}
-      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
-    ports:
-      - "8000:8000"
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "80:3000"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
